@@ -7,6 +7,8 @@ if ! python3 -c "import f110_gym" &> /dev/null; then
     pip3 install -e /sim_ws/src/f1tenth_gym
 fi
 
+chmod +x /sim_ws/src/arcus/scripts/lint-apply.sh
+
 # Source ROS setup
 source /opt/ros/humble/setup.bash
 source /sim_ws/install/setup.bash

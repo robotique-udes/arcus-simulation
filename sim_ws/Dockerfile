@@ -36,7 +36,8 @@ RUN apt-get update --fix-missing && \
                        ros-humble-nav2-bringup \
                        ros-humble-xacro \
                        ros-humble-udp-msgs \
-                       x11-apps
+                       x11-apps \
+                       clang-format
 
 RUN pip3 install transforms3d gym
 
