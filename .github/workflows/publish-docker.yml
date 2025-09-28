@@ -1,54 +1,34 @@
-name: Create and publish a Docker image
+name: Test Docker build
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
-  build-and-push-image:
+  test-docker-build:
     runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      packages: write
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: test-image
           labels: |
-            org.opencontainers.image.description = Container image for arcus-simulation
-            
-      - name: Build and push Docker image
-        id: push
+            org.opencontainers.image.description=Test build for arcus-simulation
+
+      - name: Build Docker image (no push)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: sim_ws/Dockerfile
-          push: true
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          
-      - name: Generate build provenance
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
+
