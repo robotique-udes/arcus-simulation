@@ -1,4 +1,4 @@
-# MIT License
+ # MIT License
 
 # Copyright (c) 2020 Hongrui Zheng
 
@@ -37,34 +37,39 @@ from tf2_ros import TransformBroadcaster
 import gym
 import numpy as np
 from transforms3d import euler
+import glob
+import os
 
 class GymBridge(Node):
     def __init__(self):
         super().__init__('gym_bridge')
 
-        self.declare_parameter('ego_namespace')
-        self.declare_parameter('ego_odom_topic')
-        self.declare_parameter('ego_opp_odom_topic')
-        self.declare_parameter('ego_scan_topic')
-        self.declare_parameter('ego_drive_topic')
-        self.declare_parameter('opp_namespace')
-        self.declare_parameter('opp_odom_topic')
-        self.declare_parameter('opp_ego_odom_topic')
-        self.declare_parameter('opp_scan_topic')
-        self.declare_parameter('opp_drive_topic')
-        self.declare_parameter('scan_distance_to_base_link')
-        self.declare_parameter('scan_fov')
-        self.declare_parameter('scan_beams')
-        self.declare_parameter('map_path')
-        self.declare_parameter('map_img_ext')
-        self.declare_parameter('num_agent')
-        self.declare_parameter('sx')
-        self.declare_parameter('sy')
-        self.declare_parameter('stheta')
-        self.declare_parameter('sx1')
-        self.declare_parameter('sy1')
-        self.declare_parameter('stheta1')
-        self.declare_parameter('kb_teleop')
+        self.declare_parameter('ego_namespace', '')
+        self.declare_parameter('ego_odom_topic', '')
+        self.declare_parameter('ego_opp_odom_topic', '')
+        self.declare_parameter('ego_scan_topic','')
+        self.declare_parameter('ego_drive_topic','')
+        self.declare_parameter('opp_namespace','')
+        self.declare_parameter('opp_odom_topic','')
+        self.declare_parameter('opp_ego_odom_topic','')
+        self.declare_parameter('opp_scan_topic','')
+        self.declare_parameter('opp_drive_topic','')
+        self.declare_parameter('scan_distance_to_base_link', 0.0)
+        self.declare_parameter('scan_fov', 0.0)
+        self.declare_parameter('scan_beams', 0)
+        self.declare_parameter('map_path', '')
+        self.declare_parameter('map_img_ext', '')
+        self.declare_parameter('num_agent', 1)
+        self.declare_parameter('sx', 0.0)
+        self.declare_parameter('sy', 0.0)
+        self.declare_parameter('stheta', 0.0)
+        self.declare_parameter('sx1',0.0)
+        self.declare_parameter('sy1',0.0)
+        self.declare_parameter('stheta1',0.0)
+        self.declare_parameter('kb_teleop', True)
+        self.declare_parameter('use_sim_localization', False)
+        self.declare_parameter('run_slam', False)
+        self.declare_parameter('slam_maps_dir', '')
 
         # check num_agents
         num_agents = self.get_parameter('num_agent').value
@@ -73,13 +78,26 @@ class GymBridge(Node):
         elif type(num_agents) != int:
             raise ValueError('num_agents should be an int.')
 
+        # load latest map
+        if self.get_parameter('use_sim_localization').value and not self.get_parameter('run_slam').value:
+            yaml_files = glob.glob(os.path.join(self.get_parameter('slam_maps_dir').value, "*.yaml"))
+            if not yaml_files:
+                latest_map = self.get_parameter('maps_dir').value
+                self.get_logger().warn(f"No map found in {self.get_parameter('slam_maps_dir').value}, using default map path instead")
+            latest_map = max(yaml_files, key=os.path.getmtime)
+            latest_map, x = os.path.splitext(latest_map)
+            map_path = latest_map
+            map_ext = self.get_parameter('map_img_ext').value
+        else:
+            map_path = self.get_parameter('map_path').value
+            map_ext = '.png'
+
+        self.get_logger().info(f"Loading map from {map_path + map_ext}")
         # env backend
         self.env = gym.make('f110_gym:f110-v0',
-                            map=self.get_parameter('map_path').value,
-                            map_ext=self.get_parameter('map_img_ext').value,
-                            num_agents=num_agents,
-                            lidar_dist=self.get_parameter("scan_distance_to_base_link").value
-                            )
+                            map=map_path,
+                            map_ext=map_ext,
+                            num_agents=num_agents)
 
         sx = self.get_parameter('sx').value
         sy = self.get_parameter('sy').value
@@ -130,6 +148,7 @@ class GymBridge(Node):
         self.drive_timer = self.create_timer(0.01, self.drive_timer_callback)
         # topic publishing timer
         self.timer = self.create_timer(0.004, self.timer_callback)
+        self.odom_timer = self.create_timer(0.02, self.odom_timer_callback)
 
         # transform broadcaster
         self.br = TransformBroadcaster(self)
@@ -138,6 +157,7 @@ class GymBridge(Node):
         self.ego_scan_pub = self.create_publisher(LaserScan, ego_scan_topic, 10)
         self.ego_odom_pub = self.create_publisher(Odometry, ego_odom_topic, 10)
         self.ego_drive_published = False
+        self.init_pose_pub = self.create_publisher(PoseWithCovarianceStamped, '/initialpose', 10)
         if num_agents == 2:
             self.opp_scan_pub = self.create_publisher(LaserScan, opp_scan_topic, 10)
             self.ego_opp_odom_pub = self.create_publisher(Odometry, ego_opp_odom_topic, 10)
@@ -175,6 +195,9 @@ class GymBridge(Node):
                 self.teleop_callback,
                 10)
 
+    def odom_timer_callback(self):
+        ts = self.get_clock().now().to_msg()
+        self._publish_odom(ts)
 
     def drive_callback(self, drive_msg):
         self.ego_requested_speed = drive_msg.drive.speed
@@ -199,7 +222,6 @@ class GymBridge(Node):
             self.obs, _ , self.done, _ = self.env.reset(np.array([[rx, ry, rtheta], opp_pose]))
         else:
             self.obs, _ , self.done, _ = self.env.reset(np.array([[rx, ry, rtheta]]))
-        self._update_sim_state()
 
     def opp_reset_callback(self, pose_msg):
         if self.has_opp:
@@ -211,8 +233,6 @@ class GymBridge(Node):
             rqw = pose_msg.pose.orientation.w
             _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes='sxyz')
             self.obs, _ , self.done, _ = self.env.reset(np.array([list(self.ego_pose), [rx, ry, rtheta]]))
-            self._update_sim_state()
-
     def teleop_callback(self, twist_msg):
         if not self.ego_drive_published:
             self.ego_drive_published = True
@@ -261,7 +281,6 @@ class GymBridge(Node):
             self.opp_scan_pub.publish(opp_scan)
 
         # pub tf
-        self._publish_odom(ts)
         self._publish_transforms(ts)
         self._publish_laser_transforms(ts)
         self._publish_wheel_transforms(ts)
@@ -284,12 +303,29 @@ class GymBridge(Node):
         self.ego_speed[1] = self.obs['linear_vels_y'][0]
         self.ego_speed[2] = self.obs['ang_vels_z'][0]
 
-        
+    def publish_initial_pose(self):
+        msg = PoseWithCovarianceStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = 'map'
+        msg.pose.pose.position.x = self.ego_pose[0]
+        msg.pose.pose.position.y = self.ego_pose[1]
+        quat = euler.euler2quat(0., 0., self.ego_pose[2], axes='sxyz')
+        msg.pose.pose.orientation.x = quat[1]
+        msg.pose.pose.orientation.y = quat[2]
+        msg.pose.pose.orientation.z = quat[3]
+        msg.pose.pose.orientation.w = quat[0]
+        msg.pose.covariance = [0.0001, 0.0, 0.0, 0.0, 0.0, 0.0, #Added pose covariance to simulate EKF
+                               0.0, 0.0001, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0001]
+        self.init_pose_pub.publish(msg)
 
     def _publish_odom(self, ts):
         ego_odom = Odometry()
         ego_odom.header.stamp = ts
-        ego_odom.header.frame_id = 'map'
+        ego_odom.header.frame_id = 'odom'
         ego_odom.child_frame_id = self.ego_namespace + '/base_link'
         ego_odom.pose.pose.position.x = self.ego_pose[0]
         ego_odom.pose.pose.position.y = self.ego_pose[1]
@@ -301,12 +337,31 @@ class GymBridge(Node):
         ego_odom.twist.twist.linear.x = self.ego_speed[0]
         ego_odom.twist.twist.linear.y = self.ego_speed[1]
         ego_odom.twist.twist.angular.z = self.ego_speed[2]
+
+        # Add pose covariance for EKF, these values can be tuned as needed
+        ego_odom.pose.covariance = [
+            0.001, 0.0, 0.0, 0.0,   0.0,   0.0,
+            0.0, 0.001, 0.0, 0.0,   0.0,   0.0,
+            0.0, 0.0, 1e6, 0.0,   0.0,   0.0,
+            0.0, 0.0, 0.0, 1e6,   0.0,   0.0,
+            0.0, 0.0, 0.0, 0.0,   1e6,   0.0,
+            0.0, 0.0, 0.0, 0.0,   0.0,   0.001
+        ]
+        # Add twist covariance for EKF, these values can be tuned as needed
+        ego_odom.twist.covariance = [
+            0.001, 0.0, 0.0, 0.0,   0.0,   0.0,
+            0.0, 0.001, 0.0, 0.0,   0.0,   0.0,
+            0.0, 0.0, 1e6, 0.0,   0.0,   0.0,
+            0.0, 0.0, 0.0, 1e6,   0.0,   0.0,
+            0.0, 0.0, 0.0, 0.0,   1e6,   0.0,
+            0.0, 0.0, 0.0, 0.0,   0.0,   0.001
+        ]
         self.ego_odom_pub.publish(ego_odom)
 
         if self.has_opp:
             opp_odom = Odometry()
             opp_odom.header.stamp = ts
-            opp_odom.header.frame_id = 'map'
+            opp_odom.header.frame_id = 'odom'
             opp_odom.child_frame_id = self.opp_namespace + '/base_link'
             opp_odom.pose.pose.position.x = self.opp_pose[0]
             opp_odom.pose.pose.position.y = self.opp_pose[1]
@@ -318,9 +373,15 @@ class GymBridge(Node):
             opp_odom.twist.twist.linear.x = self.opp_speed[0]
             opp_odom.twist.twist.linear.y = self.opp_speed[1]
             opp_odom.twist.twist.angular.z = self.opp_speed[2]
+
+            # Add covariance as above
+            opp_odom.pose.covariance = ego_odom.pose.covariance
+            opp_odom.twist.covariance = ego_odom.twist.covariance
+
             self.opp_odom_pub.publish(opp_odom)
             self.opp_ego_odom_pub.publish(ego_odom)
             self.ego_opp_odom_pub.publish(opp_odom)
+
 
     def _publish_transforms(self, ts):
         ego_t = Transform()
@@ -336,7 +397,10 @@ class GymBridge(Node):
         ego_ts = TransformStamped()
         ego_ts.transform = ego_t
         ego_ts.header.stamp = ts
-        ego_ts.header.frame_id = 'map'
+        if self.get_parameter('use_sim_localization').value:
+            ego_ts.header.frame_id = 'odom'
+        else:   
+            ego_ts.header.frame_id = 'map' # If not using localization, publish directly in map frame
         ego_ts.child_frame_id = self.ego_namespace + '/base_link'
         self.br.sendTransform(ego_ts)
 
@@ -354,7 +418,7 @@ class GymBridge(Node):
             opp_ts = TransformStamped()
             opp_ts.transform = opp_t
             opp_ts.header.stamp = ts
-            opp_ts.header.frame_id = 'map'
+            opp_ts.header.frame_id = 'odom'
             opp_ts.child_frame_id = self.opp_namespace + '/base_link'
             self.br.sendTransform(opp_ts)
 

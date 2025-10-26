@@ -5,6 +5,7 @@ services:
     volumes:
       - ../sim_ws/src/f1tenth_gym:/sim_ws/src/f1tenth_gym
       - ../sim_ws/src/f1tenth_gym_ros:/sim_ws/src/f1tenth_gym_ros
+      - ../sim_ws/src/fake_imu:/sim_ws/src/fake_imu
       - ../sim_ws/src/scripts:/sim_ws/src/scripts
       - ../../arcus:/sim_ws/src/arcus
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
