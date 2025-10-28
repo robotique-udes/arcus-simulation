@@ -27,11 +27,13 @@ def generate_launch_description():
         'config',
         'sim.yaml'
     )
+    
     config_dict = yaml.safe_load(open(config, 'r'))
     has_opp = config_dict['bridge']['ros__parameters']['num_agent'] > 1
     simulated_localization = config_dict['bridge']['ros__parameters']['use_sim_localization']
     run_slam = config_dict['bridge']['ros__parameters']['run_slam']
     map_path = config_dict['bridge']['ros__parameters']['map_path'] + '.yaml'
+
     if simulated_localization and not run_slam:
         maps_dir = config_dict['bridge']['ros__parameters']['slam_maps_dir']
         latest_map_yaml = get_latest_map_yaml(maps_dir)

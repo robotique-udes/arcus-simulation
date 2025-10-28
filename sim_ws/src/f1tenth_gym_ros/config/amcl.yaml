@@ -1,3 +1,5 @@
+#This is the config file for the nav2_amcl package
+#Most of these parameters will need to be adjusted for real car implementation
 amcl:
   ros__parameters:
     use_sim_time: true

@@ -3,6 +3,7 @@ from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
 
+#This is not used currently, but could be if you want to only run amcl 
 def generate_launch_description():
     # Path to your map file (YAML that points to a PGM/PNG map image)
     map_file = os.path.join(
@@ -25,7 +26,7 @@ def generate_launch_description():
             executable='map_server',
             name='map_server',
             output='screen',
-            parameters=[{'yaml_filename': '/home/user/map.yaml'}]
+            parameters=[{'yaml_filename': map_file}]
         ),
 
         Node(
@@ -35,7 +36,7 @@ def generate_launch_description():
             output="screen",
             parameters=[amcl_config],
             remappings=[
-                ("/odom", "/odometry/filtered")   # remap odometry input to use filtered odometry
+                ("/odom", "/odometry/filtered")   # remap odometry input to use filtered odometry (remove if not using EKF)
             ]
         )
 

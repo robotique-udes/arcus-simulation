@@ -43,7 +43,8 @@ import os
 class GymBridge(Node):
     def __init__(self):
         super().__init__('gym_bridge')
-
+        
+        #Added default values for parameters to avoid warnings
         self.declare_parameter('ego_namespace', '')
         self.declare_parameter('ego_odom_topic', '')
         self.declare_parameter('ego_opp_odom_topic', '')
@@ -78,7 +79,7 @@ class GymBridge(Node):
         elif type(num_agents) != int:
             raise ValueError('num_agents should be an int.')
 
-        # load latest map
+        # load latest map from slam_map_saver
         if self.get_parameter('use_sim_localization').value and not self.get_parameter('run_slam').value:
             yaml_files = glob.glob(os.path.join(self.get_parameter('slam_maps_dir').value, "*.yaml"))
             if not yaml_files:
@@ -88,7 +89,7 @@ class GymBridge(Node):
             latest_map, x = os.path.splitext(latest_map)
             map_path = latest_map
             map_ext = self.get_parameter('map_img_ext').value
-        else:
+        else: #Else map is default
             map_path = self.get_parameter('map_path').value
             map_ext = '.png'
 
