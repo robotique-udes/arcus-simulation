@@ -14,60 +14,72 @@ using namespace std::chrono_literals;
 
 class FakeImuPublisher : public rclcpp::Node
 {
+private:
+    static constexpr const char *NODE_NAME = "fake_imu_publisher";
+    static constexpr const char *CMD_VEL_TOPIC = "/cmd_vel";
+    static constexpr const char *IMU_TOPIC = "/imu/data";
+    static constexpr const char *FRAME_ID = "ego_racecar/base_link";
+    static constexpr int QOS_DEPTH = 10;
+    static constexpr auto IMU_PUBLISH_PERIOD = 20ms; // 50 Hz
+
 public:
     FakeImuPublisher()
-        : Node("fake_imu_publisher"),
-          prev_vx_(0.0), prev_vy_(0.0), yaw_(0.0)
+        : Node(NODE_NAME),
+          _prev_vx(0.0), _prev_vy(0.0), _yaw(0.0)
     {
-        subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
-            "/cmd_vel", 10,
-            std::bind(&FakeImuPublisher::twist_callback, this, std::placeholders::_1));
+        _subscription = this->create_subscription<geometry_msgs::msg::Twist>(
+            CMD_VEL_TOPIC, QOS_DEPTH,
+            [this](const geometry_msgs::msg::Twist::SharedPtr msg)
+            {
+                this->twist_callback(msg);
+            });
 
-        imu_publisher_ = this->create_publisher<sensor_msgs::msg::Imu>("/imu/data", 10);
+        _imu_publisher = this->create_publisher<sensor_msgs::msg::Imu>(
+            IMU_TOPIC, QOS_DEPTH);
 
-        prev_time_ = this->now();
+        _prev_time = this->now();
 
-        // Timer to publish IMU at 50 Hz (every 20ms)
-        timer_ = this->create_wall_timer(
-            20ms, std::bind(&FakeImuPublisher::publish_imu, this));
+        // Timer to publish IMU data periodically
+        _timer = this->create_wall_timer(
+            IMU_PUBLISH_PERIOD,
+            [this]()
+            { this->publish_imu(); });
     }
 
 private:
     void twist_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
     {
-        // Save the latest twist command
-        last_twist_ = *msg;
-        last_twist_time_ = this->now();
+        _last_twist = *msg;
+        _last_twist_time = this->now();
     }
 
     void publish_imu()
     {
         rclcpp::Time now = this->now();
-        double dt = (now - prev_time_).seconds();
-
+        double dt = (now - _prev_time).seconds();
         if (dt <= 0.0)
             return;
 
-        // Use last known velocities
-        double vx = last_twist_.linear.x;
-        double vy = last_twist_.linear.y;
-        double wz = last_twist_.angular.z;
+        double vx = _last_twist.linear.x;
+        double vy = _last_twist.linear.y;
+        double wz = _last_twist.angular.z;
 
         // Finite difference acceleration
-        double ax = (vx - prev_vx_) / dt;
-        double ay = (vy - prev_vy_) / dt;
+        double ax = (vx - _prev_vx) / dt;
+        double ay = (vy - _prev_vy) / dt;
 
         // Integrate yaw
-        yaw_ += wz * dt;
+        _yaw += wz * dt;
 
         // Convert to quaternion
         tf2::Quaternion q;
-        q.setRPY(0.0, 0.0, yaw_);
+        q.setRPY(0.0, 0.0, _yaw);
         q.normalize();
 
-        auto imu_msg = sensor_msgs::msg::Imu();
+        // IMU message
+        sensor_msgs::msg::Imu imu_msg;
         imu_msg.header.stamp = now;
-        imu_msg.header.frame_id = "ego_racecar/base_link";
+        imu_msg.header.frame_id = FRAME_ID;
 
         // Orientation
         imu_msg.orientation = tf2::toMsg(q);
@@ -94,23 +106,23 @@ private:
             0.0, 0.001, 0.0,
             0.0, 0.0, 0.001};
 
-        imu_publisher_->publish(imu_msg);
+        _imu_publisher->publish(imu_msg);
 
         // Update previous values
-        prev_vx_ = vx;
-        prev_vy_ = vy;
-        prev_time_ = now;
+        _prev_vx = vx;
+        _prev_vy = vy;
+        _prev_time = now;
     }
 
-    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr subscription_;
-    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher_;
-    rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr _subscription;
+    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr _imu_publisher;
+    rclcpp::TimerBase::SharedPtr _timer;
 
-    geometry_msgs::msg::Twist last_twist_;
-    rclcpp::Time last_twist_time_;
+    geometry_msgs::msg::Twist _last_twist;
+    rclcpp::Time _last_twist_time;
 
-    double prev_vx_, prev_vy_, yaw_;
-    rclcpp::Time prev_time_;
+    double _prev_vx, _prev_vy, _yaw;
+    rclcpp::Time _prev_time;
 };
 
 int main(int argc, char *argv[])

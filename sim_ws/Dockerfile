@@ -41,6 +41,9 @@ RUN apt-get update --fix-missing && \
     x11-apps \
     clang-format
 
+# Fix for 'no module name 'numba' with docker compose 2.40
+# Seems to be a conflict between f110_gym and openAi gym
+ENV PYTHONPATH="/usr/local/lib/python3.10/dist-packages:${PYTHONPATH}"
 RUN pip3 install transforms3d gym
 
 # -----------------------------
