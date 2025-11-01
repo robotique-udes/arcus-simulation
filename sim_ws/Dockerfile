@@ -14,31 +14,36 @@ RUN apt-get -o Acquire::ForceIPv4=true update --fix-missing
 
 RUN apt-get update && apt-get install -y \
     libasio-dev \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update --fix-missing && \
     apt-get install -y git \
-                       nano \
-                       vim \
-                       python3-pip \
-                       libeigen3-dev \
-                       tmux \
-                       ros-humble-rviz2 \
-                       ros-humble-ackermann-msgs \
-                       ros-humble-nav-msgs \
-                       ros-humble-sensor-msgs \
-                       ros-humble-geometry-msgs \
-                       ros-humble-std-msgs \
-                       ros-humble-tf2 \
-                       ros-humble-tf2-ros \
-                       ros-humble-tf2-geometry-msgs \
-                       ros-humble-navigation2 \
-                       ros-humble-nav2-bringup \
-                       ros-humble-xacro \
-                       ros-humble-udp-msgs \
-                       x11-apps \
-                       clang-format
+    nano \
+    vim \
+    python3-pip \
+    libeigen3-dev \
+    tmux \
+    ros-humble-rviz2 \
+    ros-humble-ackermann-msgs \
+    ros-humble-nav-msgs \
+    ros-humble-sensor-msgs \
+    ros-humble-geometry-msgs \
+    ros-humble-std-msgs \
+    ros-humble-tf2 \
+    ros-humble-tf2-ros \
+    ros-humble-tf2-geometry-msgs \
+    ros-humble-navigation2 \
+    ros-humble-nav2-bringup \
+    ros-humble-nav2-amcl \
+    ros-humble-robot-localization \
+    ros-humble-xacro \
+    ros-humble-udp-msgs \
+    x11-apps \
+    clang-format
 
+# Fix for 'no module name 'numba' with docker compose 2.40
+# Seems to be a conflict between f110_gym and openAi gym
+ENV PYTHONPATH="/usr/local/lib/python3.10/dist-packages:${PYTHONPATH}"
 RUN pip3 install transforms3d gym
 
 # -----------------------------
