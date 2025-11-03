@@ -7,6 +7,8 @@ services:
       - ../sim_ws/src/f1tenth_gym_ros:/sim_ws/src/f1tenth_gym_ros
       - ../sim_ws/src/fake_imu:/sim_ws/src/fake_imu
       - ../sim_ws/src/scripts:/sim_ws/src/scripts
+      - ../sim_ws/src/visualization:/sim_ws/src/visualization
+      - ../sim_ws/src/resources:/sim_ws/src/resources
       - ../../arcus:/sim_ws/src/arcus
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
     environment:
