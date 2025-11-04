@@ -38,6 +38,7 @@ RUN apt-get update --fix-missing && \
     ros-humble-robot-localization \
     ros-humble-xacro \
     ros-humble-udp-msgs \
+    ros-humble-teleop-twist-keyboard \
     x11-apps \
     clang-format
 
