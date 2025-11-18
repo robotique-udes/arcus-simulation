@@ -22,7 +22,10 @@ RUN apt-get update --fix-missing && \
     vim \
     python3-pip \
     libeigen3-dev \
-    tmux \
+    qt6-base-dev \
+    qt6-base-dev-tools \
+    qt6-tools-dev \
+    qt6-tools-dev-tools \
     ros-humble-rviz2 \
     ros-humble-ackermann-msgs \
     ros-humble-nav-msgs \
