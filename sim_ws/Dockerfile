@@ -6,12 +6,6 @@ SHELL ["/bin/bash", "-c"]
 # -----------------------------
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
 RUN echo "if [ -f /sim_ws/install/setup.bash ]; then source /sim_ws/install/setup.bash; fi" >> ~/.bashrc
-RUN echo 'b() { \
-    source /opt/ros/humble/setup.bash; \
-    cd /sim_ws || exit; \
-    colcon build "$@"; \
-    source install/setup.bash; \
-}' >> /root/.bashrc
 
 # -----------------------------
 # Install dependencies
@@ -53,6 +47,10 @@ RUN apt-get update --fix-missing && \
     x11-apps \
     x11-apps xterm \
     clang-format
+
+RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
+
+RUN echo -e "b() { \n    source /opt/ros/humble/setup.bash\n    cd /sim_ws || exit \n   colcon build "$@" --symlink-install\n    source install/local_setup.bash\n   \n}" >> ~/.bashrc
 
 # Fix for 'no module name 'numba' with docker compose 2.40
 # Seems to be a conflict between f110_gym and openAi gym
