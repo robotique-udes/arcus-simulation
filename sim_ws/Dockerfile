@@ -6,6 +6,12 @@ SHELL ["/bin/bash", "-c"]
 # -----------------------------
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
 RUN echo "if [ -f /sim_ws/install/setup.bash ]; then source /sim_ws/install/setup.bash; fi" >> ~/.bashrc
+RUN echo 'b() { \
+    source /opt/ros/humble/setup.bash; \
+    cd /sim_ws || exit; \
+    colcon build "$@"; \
+    source install/setup.bash; \
+}' >> /root/.bashrc
 
 # -----------------------------
 # Install dependencies
@@ -26,6 +32,8 @@ RUN apt-get update --fix-missing && \
     qt6-base-dev-tools \
     qt6-tools-dev \
     qt6-tools-dev-tools \
+    libgl1-mesa-glx \
+    libgl1-mesa-dri \
     ros-humble-rviz2 \
     ros-humble-ackermann-msgs \
     ros-humble-nav-msgs \
@@ -43,6 +51,7 @@ RUN apt-get update --fix-missing && \
     ros-humble-udp-msgs \
     ros-humble-teleop-twist-keyboard \
     x11-apps \
+    x11-apps xterm \
     clang-format
 
 # Fix for 'no module name 'numba' with docker compose 2.40

@@ -1,6 +1,6 @@
 #include "waypoints_publisher.hpp"
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<WaypointsPublisher>());
@@ -8,7 +8,8 @@ int main(int argc, char **argv)
     return 0;
 }
 
-WaypointsPublisher::WaypointsPublisher() : Node("waypoints_publisher")
+WaypointsPublisher::WaypointsPublisher():
+    Node("waypoints_publisher")
 {
     this->handleRosParam();
     this->loadWaypointsFromCSV();
@@ -62,7 +63,7 @@ void WaypointsPublisher::loadWaypointsFromCSV(void)
         geometry_msgs::msg::PoseStamped poseStamped;
         poseStamped.pose.position.x = std::stod(xPos);
         poseStamped.pose.position.y = std::stod(yPos);
-        poseStamped.pose.orientation.w = 1.0; // Neutral orientation
+        poseStamped.pose.orientation.w = 1.0;  // Neutral orientation
 
         poseStamped.header.frame_id = "map";
         poseStamped.header.stamp = this->now();

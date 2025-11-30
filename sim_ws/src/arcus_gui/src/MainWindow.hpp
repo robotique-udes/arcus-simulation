@@ -6,9 +6,10 @@
 #include <QFrame>
 #include <QCloseEvent>
 #include <QApplication>
+#include <QGridLayout>
 
+#include "QWidget/QExampleWidget/QExampleWidget.hpp"
 #include "rclcpp/rclcpp.hpp"
-
 
 class MainWindow : public QMainWindow
 {
@@ -20,9 +21,10 @@ class MainWindow : public QMainWindow
   private:
     void closeEvent(QCloseEvent* event_) override;
 
-    QShortcut _closeShortCut;
-
     QWidget _centralWidget = QWidget(this);
+    QGridLayout _gridLayout = QGridLayout(&_centralWidget);
+
+    QExampleWidget _exampleWidget;
 };
 
 #endif  // MAIN_WINDOWS_HPP

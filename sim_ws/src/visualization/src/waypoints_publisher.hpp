@@ -16,10 +16,10 @@ class WaypointsPublisher : public rclcpp::Node
     static constexpr uint32_t PUBLISH_WAYPOINTS_DELAY_MS = 10'000u;
     static constexpr uint32_t DEFAULT_QOS = 1;
 
-public:
+  public:
     WaypointsPublisher();
 
-private:
+  private:
     void handleRosParam(void);
     void loadWaypointsFromCSV(void);
     void CB_timerPublishWaypoints(void);
@@ -30,4 +30,4 @@ private:
     std::vector<geometry_msgs::msg::PoseStamped> _waypoints;
 };
 
-#endif // WAYPOINTS_PUBLISHER_HPP
+#endif  // WAYPOINTS_PUBLISHER_HPP

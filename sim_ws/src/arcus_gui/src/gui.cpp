@@ -52,22 +52,24 @@ int guiMain(int argc_, char* argv_[], std::shared_ptr<rclcpp::Node> guiNode_)
     MainWindow mainWindow(guiNode_);
     displayWindows(mainWindow);
 
-    QProcess rosProcess;
+    QProcess simProcess;
     // clang-format off
-    QObject::connect(&rosProcess, &QProcess::readyReadStandardOutput, [&rosProcess](){ forwardPrints(rosProcess); });
-    QObject::connect(&rosProcess, &QProcess::readyReadStandardError, [&rosProcess](){ forwardPrints(rosProcess); });
+    // Example of how to forward prints from ros process with our node (we don't use it with the simProcess so we don't pollute the terminal)
+    //QObject::connect(&simProcess, &QProcess::readyReadStandardOutput, [&simProcess](){ forwardPrints(simProcess); });
+    //QObject::connect(&simProcess, &QProcess::readyReadStandardError, [&simProcess](){ forwardPrints(simProcess); });
     // clang-format on
 
-    //rosProcess.start("bash",
-    //                QStringList() << "-c"
-    //                               << "source ~/.bashrc && ros2 launch rover_msgs base.launch.py");
+    // Forward the sim log in a terminal emulator so we don't pollute the GUI terminal
+    simProcess.start("xterm",
+                     QStringList() << "-e"
+                                   << "bash -c 'ros2 launch f1tenth_gym_ros gym_bridge_launch.py; exec bash'");
 
     int ret = QApplication::exec();
 
-    rosProcess.terminate();
-    if (!rosProcess.waitForFinished(3000))
+    simProcess.terminate();
+    if (!simProcess.waitForFinished(3000))
     {
-        rosProcess.kill();
+        simProcess.kill();
     }
 
     return ret;
