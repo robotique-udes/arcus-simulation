@@ -75,7 +75,7 @@ void QExampleWidget::CB_odomPubCount()
     size_t count = _node->count_publishers(TOPIC_ODOM);
     if (!count)
     {
-        _ui.title->setText("Not Posistion Received!");
+        _ui.title->setText("No Position Received!");
     }
 }
 
@@ -83,6 +83,6 @@ void QExampleWidget::CB_odomTimeout()
 {
     if ((_node->now() - _lastOdomMsgTime) > _odomTimeout)
     {
-        _ui.title->setText("Not Posistion Received!");
+        _ui.title->setText("No Position Received!");
     }
 }
