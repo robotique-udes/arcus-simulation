@@ -32,15 +32,12 @@ class QExampleWidget : public QWidget
     void initOdomSubscriber(void);
 
     void CB_odom(nav_msgs::msg::Odometry& msg_);
-
     void CB_odomPubCount();
-
     void CB_odomTimeout();
 
     std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> _sub_odom;
 
     rclcpp::TimerBase::SharedPtr _timer_odomPub;
-
     rclcpp::TimerBase::SharedPtr _watchdog_odom;
 
     rclcpp::Time _lastOdomMsgTime;
@@ -52,4 +49,4 @@ class QExampleWidget : public QWidget
     Ui::ExampleWidget _ui;
 };
 
-#endif  // QTOP_UTILITY_BAR
+#endif  // Q_EXAMPLE_WIDGET_HPP
