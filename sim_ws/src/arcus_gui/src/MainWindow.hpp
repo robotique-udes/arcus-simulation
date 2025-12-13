@@ -26,8 +26,6 @@ class MainWindow : public QMainWindow
 
     QExampleWidget _exampleWidget;
     QTopicSelector _topicSelector;
-
-    rclcpp::TimerBase::SharedPtr _timer_searchTopic;
 };
 
 #endif  // MAIN_WINDOWS_HPP
