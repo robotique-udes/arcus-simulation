@@ -8,8 +8,11 @@ services:
       - ../sim_ws/src/fake_imu:/sim_ws/src/fake_imu
       - ../sim_ws/src/scripts:/sim_ws/src/scripts
       - ../sim_ws/src/visualization:/sim_ws/src/visualization
+      - ../sim_ws/src/arcus_gui:/sim_ws/src/arcus_gui
       - ../../arcus:/sim_ws/src/arcus
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    devices:
+      - /dev/dri:/dev/dri
     environment:
       - DISPLAY=${DISPLAY}
     network_mode: host

@@ -22,7 +22,12 @@ RUN apt-get update --fix-missing && \
     vim \
     python3-pip \
     libeigen3-dev \
-    tmux \
+    qt6-base-dev \
+    qt6-base-dev-tools \
+    qt6-tools-dev \
+    qt6-tools-dev-tools \
+    libgl1-mesa-glx \
+    libgl1-mesa-dri \
     ros-humble-rviz2 \
     ros-humble-ackermann-msgs \
     ros-humble-nav-msgs \
@@ -40,6 +45,7 @@ RUN apt-get update --fix-missing && \
     ros-humble-udp-msgs \
     ros-humble-teleop-twist-keyboard \
     x11-apps \
+    x11-apps xterm \
     clang-format
 
 RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc

@@ -1,0 +1,199 @@
+#pragma once
+
+#include <QString>
+
+namespace Constants::Style
+{
+    constexpr const char* STATUS_STYLE = R"(
+
+.success {
+    background-color: #81c784;
+    color: black;
+    border: 1px solid #388e3c;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+
+.warning {
+    background-color: #ffb74d;
+    color: black;
+    border: 1px solid #e65100;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+
+.error {
+    background-color: #e57373;
+    color: black;
+    border: 1px solid #b71c1c;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+)";
+
+    constexpr const char* STYLE_DARK_MODE = R"(
+QWidget {
+     background-color: #2e2e2e;
+    color: #ffffff;
+}
+
+QMenuBar {
+    background-color: #3c3f41;
+    color: #ffffff;
+}
+
+QMenu {
+    background-color: #3c3f41;
+    color: #ffffff;
+    border-radius: 10px;
+}
+
+QMenu::item {
+    padding: 5px 30px;
+}
+
+QMenu::item:selected {
+    background-color: #4a4e54;
+}
+
+QPushButton {
+    background-color: #3c3f41;
+    border: 1px solid #4b4e52;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+
+QPushButton:hover {
+    background-color: #4d4d4d;
+}
+
+QPushButton:disabled {
+    background-color: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 5px;
+    padding: 5px 10px;
+    color: #777777;
+}
+
+QLineEdit {
+    background-color: #3c3f41;
+    color: #ffffff;
+    border: 1px solid #4b4e52;
+    border-radius: 5px;
+    padding: 5px;
+}
+
+QTextEdit {
+    background-color: #3c3f41;
+    color: #ffffff;
+    border: 1px solid #4b4e52;
+    border-radius: 5px;
+}
+
+QLabel {
+    color: #ffffff;
+}
+
+QScrollBar:vertical {
+    background: #2e2e2e;
+    width: 10px;
+}
+
+QScrollBar::handle:vertical {
+    background: #4b4e52;
+    border-radius: 5px;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    background: none;
+}
+
+QCheckBox {
+    color: #ffffff;
+}
+
+QRadioButton {
+    color: #ffffff;
+}
+
+QRadioButton::indicator {
+    background-color: #3c3f41;
+    border: 1px solid #4b4e52;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #4d4d4d;
+}
+
+QTabWidget::pane {
+    background-color: #2e2e2e;
+}
+
+QTabBar::tab {
+    background-color: #3c3f41;
+    color: #ffffff;
+    padding: 10px;
+}
+
+QTabBar::tab:selected {
+    background-color: #4d4d4d;
+}
+
+QProgressBar {
+    background-color: #2e2e2e; 
+    border: 2px solid #444444;
+    border-radius: 2px;
+    text-align: center;
+    color: white;
+}
+
+QProgressBar::chunk {
+    background-color: #4caf50;
+    border-radius: 2px;
+}
+
+QProgressBar::text {
+    color: white; 
+    font-weight: bold;
+}
+
+QStatusBar {
+    background-color: #3c3f41;
+    color: #ffffff;
+}
+
+SideBar { 
+    border: 2px solid black;
+}
+
+.normal {
+    background-color: #3c3f41;
+    border: 1px solid #4b4e52;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+
+/* frameShape=QFrame::HLine */
+QFrame[frameShape="4"] {
+    background-color: #444444;
+    max-height: 2px;
+    min-height: 2px;
+    border: none;
+    margin: 8px 0 8px 0;
+    border-radius: 1px;
+}
+
+QFrame[frameShape="5"] {
+    background-color: #444444;
+    max-height: 2px;
+    min-height: 2px;
+    border: none;
+    margin: 8px 0 8px 0;
+    border-radius: 1px;
+}
+)";
+
+    constexpr const char* STYLE_LIGHT_MODE = "";
+
+}  // namespace Constants::Style
