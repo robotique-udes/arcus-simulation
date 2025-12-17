@@ -16,7 +16,7 @@ QExampleWidget::QExampleWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* par
 }
 
 void QExampleWidget::setupUI(void)
-{
+{   
     _ui.title->setText("Car Position: ");
     _ui.posXText->setText("X : --.-- ");
     _ui.posYText->setText("Car --.--: ");

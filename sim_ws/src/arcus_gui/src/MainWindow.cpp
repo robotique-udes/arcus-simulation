@@ -2,12 +2,14 @@
 
 MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     QMainWindow(nullptr),
-    _exampleWidget(guiNode_, this)
+    _exampleWidget(guiNode_, this),
+    _topicSelector(this, "sensor_msgs/msg/LaserScan", "LaserScan", guiNode_)
 {
     this->setCentralWidget(&_centralWidget);
 
     _centralWidget.setLayout(&_gridLayout);
     _gridLayout.addWidget(&_exampleWidget);
+    _gridLayout.addWidget(&_topicSelector);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event_)

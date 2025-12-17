@@ -33,10 +33,10 @@ add_custom_command(
 add_custom_target(run_generate_ui ALL DEPENDS ${CMAKE_BINARY_DIR}/ui_generated)
 
 # Executable
-add_executable(arcus_gui
-    src/gui.cpp
+add_executable(arcus_gui src/gui.cpp
     src/MainWindow.cpp
     src/QWidget/QExampleWidget/QExampleWidget.cpp
+    src/Global/Helper/QTopicSelector/QTopicSelector.cpp
 )
 
 # ROS2 dependencies

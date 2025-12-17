@@ -7,8 +7,8 @@
 #include <QCloseEvent>
 #include <QApplication>
 #include <QGridLayout>
-
 #include "QWidget/QExampleWidget/QExampleWidget.hpp"
+#include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class MainWindow : public QMainWindow
@@ -25,6 +25,7 @@ class MainWindow : public QMainWindow
     QGridLayout _gridLayout = QGridLayout(&_centralWidget);
 
     QExampleWidget _exampleWidget;
+    QTopicSelector _topicSelector;
 };
 
 #endif  // MAIN_WINDOWS_HPP
