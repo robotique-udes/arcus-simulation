@@ -15,10 +15,10 @@ ekf_filter_node:
 
     # Odometry input
     odom0: /ego_racecar/odom
-    odom0_config: [true,  true,  false, # X,Y,yaw, X', yaw'
+    odom0_config: [false,  false,  false, # X', yaw
                        false, false, true,
                        true, false, false,
-                       false, false, true,
+                       false, false, false,
                        false, false, false]
     odom0_differential: false
     odom0_relative: false

@@ -282,7 +282,7 @@ class GymBridge(Node):
             self.opp_scan_pub.publish(opp_scan)
 
         # pub tf
-        self._publish_transforms(ts)
+        #self._publish_transforms(ts)
         self._publish_laser_transforms(ts)
         self._publish_wheel_transforms(ts)
 
