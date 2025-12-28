@@ -34,7 +34,7 @@ void QProcessHandler::onPushed()
         if (pid > 0)
         {
             ::kill(-pid, SIGTERM);
-            _process.waitForFinished(PROCESS_KILL_TIMEOUT_MS);
+            _process.waitForFinished(PROCESS_TERM_TIMEOUT_MS);
             RCLCPP_INFO(rclcpp::get_logger("GUI"), "Sent SIGTERM to process group with PID %ld", pid);
 
             if (_process.state() != QProcess::NotRunning)
