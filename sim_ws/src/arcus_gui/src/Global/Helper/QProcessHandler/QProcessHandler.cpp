@@ -41,7 +41,7 @@ void QProcessHandler::onPushed()
             {
                 ::kill(-pid, SIGKILL);
                 RCLCPP_INFO(rclcpp::get_logger("GUI"), "Sent SIGKILL to process group with PID %ld", pid);
-                _process.waitForFinished(1000);
+                _process.waitForFinished(PROCESS_KILL_TIMEOUT_MS);
             }
         }
         _processIsOn = false;
