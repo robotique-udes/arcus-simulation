@@ -315,12 +315,13 @@ class GymBridge(Node):
         msg.pose.pose.orientation.y = quat[2]
         msg.pose.pose.orientation.z = quat[3]
         msg.pose.pose.orientation.w = quat[0]
-        msg.pose.covariance = [0.0001, 0.0, 0.0, 0.0, 0.0, 0.0, #Added pose covariance to simulate EKF
-                               0.0, 0.0001, 0.0, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0001]
+        msg.pose.covariance = [0.2, 0.0, 0.0, 0.0, 0.0, 0.0, #Added pose covariance to simulate EKF
+                               0.0, 0.2, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.4]
+        
         self.init_pose_pub.publish(msg)
 
     def _publish_odom(self, ts):
@@ -340,22 +341,20 @@ class GymBridge(Node):
         ego_odom.twist.twist.angular.z = self.ego_speed[2]
 
         # Add pose covariance for EKF, these values can be tuned as needed
-        ego_odom.pose.covariance = [
-            0.001, 0.0, 0.0, 0.0,   0.0,   0.0,
-            0.0, 0.001, 0.0, 0.0,   0.0,   0.0,
-            0.0, 0.0, 1e6, 0.0,   0.0,   0.0,
-            0.0, 0.0, 0.0, 1e6,   0.0,   0.0,
-            0.0, 0.0, 0.0, 0.0,   1e6,   0.0,
-            0.0, 0.0, 0.0, 0.0,   0.0,   0.001
-        ]
+        ego_odom.pose.covariance = [0.2, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                    0.0, 0.2, 0.0, 0.0, 0.0, 0.0,
+                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.4]
         # Add twist covariance for EKF, these values can be tuned as needed
         ego_odom.twist.covariance = [
-            0.001, 0.0, 0.0, 0.0,   0.0,   0.0,
-            0.0, 0.001, 0.0, 0.0,   0.0,   0.0,
-            0.0, 0.0, 1e6, 0.0,   0.0,   0.0,
-            0.0, 0.0, 0.0, 1e6,   0.0,   0.0,
-            0.0, 0.0, 0.0, 0.0,   1e6,   0.0,
-            0.0, 0.0, 0.0, 0.0,   0.0,   0.001
+            0.02, 0.0, 0.0, 0.0,   0.0,   0.0,
+            0.0, 0.01, 0.0, 0.0,   0.0,   0.0,
+            0.0, 0.0, 0.0, 0.0,   0.0,   0.0,
+            0.0, 0.0, 0.0, 0.0,   0.0,   0.0,
+            0.0, 0.0, 0.0, 0.0,   0.0,   0.0,
+            0.0, 0.0, 0.0, 0.0,   0.0,   0.09
         ]
         self.ego_odom_pub.publish(ego_odom)
 
