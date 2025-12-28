@@ -37,6 +37,7 @@ add_executable(arcus_gui src/gui.cpp
     src/MainWindow.cpp
     src/QWidget/QExampleWidget/QExampleWidget.cpp
     src/Global/Helper/QTopicSelector/QTopicSelector.cpp
+    src/Global/Helper/QProcessHandler/QProcessHandler.cpp
 )
 
 # ROS2 dependencies

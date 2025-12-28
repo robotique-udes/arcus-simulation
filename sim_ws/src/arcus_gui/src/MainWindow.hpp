@@ -9,6 +9,7 @@
 #include <QGridLayout>
 #include "QWidget/QExampleWidget/QExampleWidget.hpp"
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
+#include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class MainWindow : public QMainWindow
@@ -26,6 +27,8 @@ class MainWindow : public QMainWindow
 
     QExampleWidget _exampleWidget;
     QTopicSelector _topicSelector;
+    QProcessHandler _processHandler;
+
 };
 
 #endif  // MAIN_WINDOWS_HPP

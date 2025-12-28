@@ -3,13 +3,15 @@
 MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     QMainWindow(nullptr),
     _exampleWidget(guiNode_, this),
-    _topicSelector(this, "sensor_msgs/msg/LaserScan", "LaserScan", guiNode_)
+    _topicSelector(this, "sensor_msgs/msg/LaserScan", "LaserScan", guiNode_),
+    _processHandler(this, "Simulation", "bash -c 'ros2 launch f1tenth_gym_ros gym_bridge_launch.py; exec bash'")
 {
     this->setCentralWidget(&_centralWidget);
 
     _centralWidget.setLayout(&_gridLayout);
     _gridLayout.addWidget(&_exampleWidget);
     _gridLayout.addWidget(&_topicSelector);
+    _gridLayout.addWidget(&_processHandler);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event_)
