@@ -4,12 +4,11 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     QMainWindow(nullptr),
     _exampleWidget(guiNode_, this),
     _topicSelector(this, "sensor_msgs/msg/LaserScan", "LaserScan", guiNode_),
-    _simuProcess(this, "Simulation", "source /opt/ros/humble/setup.bash && ros2 launch f1tenth_gym_ros gym_bridge_launch.py", false),
-    _visualizationProcess(this, "Visualization", "source /opt/ros/humble/setup.bash && ros2 launch visualization visualization.launch.py", true),
-    _gapFollowProcess(this, "Gap Follow", "source /opt/ros/humble/setup.bash && ros2 launch gap_follow gap_follow.launch.py", true),
-    _purePusuitProcess(this, "Pure Pursuit", "source /opt/ros/humble/setup.bash && ros2 launch pure_pursuit pure_pursuit.launch.py", true)
-
-
+    _simuProcess(this, "Simulation", SIM_PROCESS_CMD, false),
+    _visualizationProcess(this, "Visualization", VISUALIZATION_PROCESS_CMD, true),
+    _gapFollowProcess(this, "Gap Follow", GAP_FOLLOW_PROCESS_CMD, true),
+    _purePusuitProcess(this, "Pure Pursuit", PURE_PURSUIT_PROCESS_CMD, true),
+    _mapSaverProcess(this, "Map Saver", MAP_SAVER_PROCESS_CMD, true)
 {
     this->setCentralWidget(&_centralWidget);
 
@@ -20,6 +19,7 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _gridLayout.addWidget(&_visualizationProcess);
     _gridLayout.addWidget(&_gapFollowProcess);
     _gridLayout.addWidget(&_purePusuitProcess);
+    _gridLayout.addWidget(&_mapSaverProcess);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event_)

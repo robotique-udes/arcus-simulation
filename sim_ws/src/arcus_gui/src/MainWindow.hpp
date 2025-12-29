@@ -32,6 +32,8 @@ class MainWindow : public QMainWindow
     QProcessHandler _visualizationProcess;
     QProcessHandler _gapFollowProcess;
     QProcessHandler _purePusuitProcess;
+    QProcessHandler _mapSaverProcess;
+
 
 
 };
