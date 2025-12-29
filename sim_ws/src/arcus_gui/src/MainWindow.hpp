@@ -27,7 +27,12 @@ class MainWindow : public QMainWindow
 
     QExampleWidget _exampleWidget;
     QTopicSelector _topicSelector;
-    QProcessHandler _processHandler;
+
+    QProcessHandler _simuProcess;
+    QProcessHandler _visualizationProcess;
+    QProcessHandler _gapFollowProcess;
+    QProcessHandler _purePusuitProcess;
+
 
 };
 

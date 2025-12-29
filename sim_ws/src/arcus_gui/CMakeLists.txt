@@ -33,7 +33,7 @@ add_custom_command(
 add_custom_target(run_generate_ui ALL DEPENDS ${CMAKE_BINARY_DIR}/ui_generated)
 
 # Executable
-add_executable(arcus_gui src/gui.cpp
+add_executable(main_gui src/gui.cpp
     src/MainWindow.cpp
     src/QWidget/QExampleWidget/QExampleWidget.cpp
     src/Global/Helper/QTopicSelector/QTopicSelector.cpp
@@ -41,15 +41,15 @@ add_executable(arcus_gui src/gui.cpp
 )
 
 # ROS2 dependencies
-ament_target_dependencies(arcus_gui rclcpp nav_msgs)
+ament_target_dependencies(main_gui rclcpp nav_msgs)
 
 # Qt6 linking (plain style, no PRIVATE keyword)
-target_link_libraries(arcus_gui Qt6::Core Qt6::Widgets)
+target_link_libraries(main_gui Qt6::Core Qt6::Widgets)
 
 # Qt target properties
-set_target_properties(arcus_gui PROPERTIES AUTOMOC ON AUTORCC ON)
+set_target_properties(main_gui PROPERTIES AUTOMOC ON AUTORCC ON)
 
-install(TARGETS arcus_gui
+install(TARGETS main_gui
     DESTINATION lib/${PROJECT_NAME}
 )
 
