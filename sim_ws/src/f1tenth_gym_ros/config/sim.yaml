@@ -65,4 +65,4 @@ bridge:
     #Use simulated localization (EKF + AMCL)
     use_sim_localization: True
     #Run slam
-    run_slam: True #Overwrites localization if true
+    run_slam: False #Overwrites localization if true

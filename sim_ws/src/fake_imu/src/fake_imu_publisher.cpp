@@ -14,28 +14,26 @@ using namespace std::chrono_literals;
 
 class FakeImuPublisher : public rclcpp::Node
 {
-  private:
-    static constexpr const char* NODE_NAME = "fake_imu_publisher";
-    static constexpr const char* CMD_VEL_TOPIC = "/cmd_vel";
-    static constexpr const char* IMU_TOPIC = "/imu/data";
-    static constexpr const char* FRAME_ID = "ego_racecar/base_link";
+private:
+    static constexpr const char *NODE_NAME = "fake_imu_publisher";
+    static constexpr const char *CMD_VEL_TOPIC = "/cmd_vel";
+    static constexpr const char *IMU_TOPIC = "/imu/data";
+    static constexpr const char *FRAME_ID = "ego_racecar/base_link";
     static constexpr int QOS_DEPTH = 10;
-    static constexpr auto IMU_PUBLISH_PERIOD = 20ms;  // 50 Hz
+    static constexpr auto IMU_PUBLISH_PERIOD = 20ms; // 50 Hz
 
-  public:
-    FakeImuPublisher():
-        Node(NODE_NAME),
-        _prev_vx(0.0),
-        _prev_vy(0.0),
-        _yaw(0.0)
+public:
+    FakeImuPublisher() : Node(NODE_NAME),
+                         _prev_vx(0.0),
+                         _prev_vy(0.0),
+                         _yaw(0.0)
     {
-        _subscription
-            = this->create_subscription<geometry_msgs::msg::Twist>(CMD_VEL_TOPIC,
-                                                                   QOS_DEPTH,
-                                                                   [this](const geometry_msgs::msg::Twist::SharedPtr msg)
-                                                                   {
-                                                                       this->twist_callback(msg);
-                                                                   });
+        _subscription = this->create_subscription<geometry_msgs::msg::Twist>(CMD_VEL_TOPIC,
+                                                                             QOS_DEPTH,
+                                                                             [this](const geometry_msgs::msg::Twist::SharedPtr msg)
+                                                                             {
+                                                                                 this->twist_callback(msg);
+                                                                             });
 
         _imu_publisher = this->create_publisher<sensor_msgs::msg::Imu>(IMU_TOPIC, QOS_DEPTH);
 
@@ -49,7 +47,7 @@ class FakeImuPublisher : public rclcpp::Node
                                          });
     }
 
-  private:
+private:
     void twist_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
     {
         _last_twist = *msg;
@@ -86,7 +84,7 @@ class FakeImuPublisher : public rclcpp::Node
 
         // Orientation
         imu_msg.orientation = tf2::toMsg(q);
-        imu_msg.orientation_covariance = {0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001};
+        imu_msg.orientation_covariance = {0.0001, 0.0, 0.0, 0.0, 0.0001, 0.0, 0.0, 0.0, 0.0001};
 
         // Angular velocity
         imu_msg.angular_velocity.x = 0.0;
@@ -119,7 +117,7 @@ class FakeImuPublisher : public rclcpp::Node
     rclcpp::Time _prev_time;
 };
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     rclcpp::init(argc, argv);
     rclcpp::spin(std::make_shared<FakeImuPublisher>());
