@@ -6,6 +6,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <QtWidgets/QWidget>
 #include <QProcess>
+#include <QStyle>
 
 class QProcessHandler : public QWidget
 {
@@ -28,7 +29,7 @@ class QProcessHandler : public QWidget
     QProcessHandler(QWidget *parent_, std::string processName_, std::string bashCmd_, bool forwardPrint_ = true);
 
   private slots:
-    void onPushed(void);
+    void onPushed(bool checked);
     void onStart(void);
     void onStop(void);
 
@@ -44,7 +45,6 @@ class QProcessHandler : public QWidget
 
     Ui::ProcessHandler _ui;
     QProcess _process;
-    bool _processIsOn = 0;
 };
 
 #endif // Q_PROCESS_HANDLER_HPP

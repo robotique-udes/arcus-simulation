@@ -8,6 +8,7 @@ Panels:
         - /Status1
         - /Map1/Topic1
         - /Path1
+        - /PointStamped1
       Splitter Ratio: 0.5
     Tree Height: 913
   - Class: rviz_common/Selection
@@ -68,8 +69,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 24.76763343811035
-        Min Value: -1.297040343284607
+        Max Value: -52.94221878051758
+        Min Value: -69.98030090332031
         Value: true
       Axis: X
       Channel Name: intensity
@@ -191,6 +192,21 @@ Visualization Manager:
         Reliability Policy: Reliable
         Value: /waypoints
       Value: true
+    - Alpha: 1
+      Class: rviz_default_plugins/PointStamped
+      Color: 204; 41; 204
+      Enabled: true
+      History Length: 1
+      Name: PointStamped
+      Radius: 0.20000000298023224
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /target_waypoint
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -237,7 +253,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 86.12761688232422
+      Distance: 59.67705154418945
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -252,10 +268,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4753982424736023
+      Pitch: 0.630398154258728
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.1653988361358643
+      Yaw: 5.535442352294922
     Saved: ~
 Window Geometry:
   Displays:

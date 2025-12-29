@@ -13,20 +13,25 @@ QProcessHandler::QProcessHandler(QWidget *parent_, std::string processName_,
     this->connectSignals();
 }
 
-void QProcessHandler::onPushed()
+void QProcessHandler::onPushed(bool checked)
 {
-    if (!_processIsOn)
+    if (checked)
     {
-        // Start the process by ensuring that the bash session is the leader of the process group with ros nodes
         if (_forwardPrint)
         {
-            _process.start("setsid", QStringList() << "bash" << "-c" << QString::fromStdString(_bashCmd));
+            _process.start("setsid",
+                QStringList() << "bash" << "-c"
+                              << QString::fromStdString(_bashCmd));
         }
         else
         {
-            _process.start("setsid", QStringList() << "xterm" << "-e" << "bash" << "-c" << QString::fromStdString(_bashCmd));
+            _process.start("setsid",
+                QStringList() << "xterm" << "-e"
+                              << "bash" << "-c"
+                              << QString::fromStdString(_bashCmd));
         }
-        _processIsOn = true;
+
+        _ui.process_PB->setProperty("class", "success");
     }
     else
     {
@@ -35,18 +40,21 @@ void QProcessHandler::onPushed()
         {
             ::kill(-pid, SIGTERM);
             _process.waitForFinished(PROCESS_TERM_TIMEOUT_MS);
-            RCLCPP_INFO(rclcpp::get_logger("GUI"), "Sent SIGTERM to process group with PID %ld", pid);
 
             if (_process.state() != QProcess::NotRunning)
             {
                 ::kill(-pid, SIGKILL);
-                RCLCPP_INFO(rclcpp::get_logger("GUI"), "Sent SIGKILL to process group with PID %ld", pid);
                 _process.waitForFinished(PROCESS_KILL_TIMEOUT_MS);
             }
         }
-        _processIsOn = false;
+
+        _ui.process_PB->setProperty("class", "normal");
     }
+
+    _ui.process_PB->style()->unpolish(_ui.process_PB);
+    _ui.process_PB->style()->polish(_ui.process_PB);
 }
+
 
 void QProcessHandler::onStart()
 {
@@ -62,12 +70,12 @@ void QProcessHandler::setupUi(void)
 {
     _ui.setupUi(this);
     _ui.process_PB->setText(QString::fromStdString(_name));
+    _ui.process_PB->setText(QString::fromStdString(_name));
 }
 
 void QProcessHandler::connectSignals(void)
 {
-    connect(_ui.process_PB, &QPushButton::clicked, this, &QProcessHandler::onPushed);
-
+    connect(_ui.process_PB, &QPushButton::toggled, this, &QProcessHandler::onPushed);
     connect(&_process, &QProcess::started, this, &QProcessHandler::onStart);
     connect(&_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             this, &QProcessHandler::onStop);
