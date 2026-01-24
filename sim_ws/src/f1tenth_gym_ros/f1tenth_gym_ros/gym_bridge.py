@@ -281,8 +281,10 @@ class GymBridge(Node):
             opp_scan.ranges = self.opp_scan
             self.opp_scan_pub.publish(opp_scan)
 
-        # pub tf
-        self._publish_transforms(ts)
+        # pub tf only if ekf is not running
+        if not self.get_parameter('use_sim_localization').value and not self.get_parameter('run_slam').value:
+            self._publish_transforms(ts)
+            
         self._publish_laser_transforms(ts)
         self._publish_wheel_transforms(ts)
 
@@ -398,10 +400,7 @@ class GymBridge(Node):
         ego_ts = TransformStamped()
         ego_ts.transform = ego_t
         ego_ts.header.stamp = ts
-        if self.get_parameter('use_sim_localization').value:
-            ego_ts.header.frame_id = 'odom'
-        else:   
-            ego_ts.header.frame_id = 'map' # If not using localization, publish directly in map frame
+        ego_ts.header.frame_id = 'map' # If not using localization, publish directly in map frame
         ego_ts.child_frame_id = self.ego_namespace + '/base_link'
         self.br.sendTransform(ego_ts)
 
