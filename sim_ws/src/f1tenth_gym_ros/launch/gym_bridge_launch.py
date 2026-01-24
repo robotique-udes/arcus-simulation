@@ -51,7 +51,7 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         name='rviz',
-        arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge.rviz')]
+        arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge.rviz'), '--ros-args', '--log-level', 'warn']
     )
     map_server_node = Node(
         package='nav2_map_server',
@@ -128,7 +128,8 @@ def generate_launch_description():
         )],
         remappings=[
             ("/odom", "/odometry/filtered")
-        ]
+        ],
+        arguments=['--ros-args', '--log-level', 'warn']
     )
 
     slam_toolbox_node = Node(

@@ -52,25 +52,7 @@ int guiMain(int argc_, char* argv_[], std::shared_ptr<rclcpp::Node> guiNode_)
     MainWindow mainWindow(guiNode_);
     displayWindows(mainWindow);
 
-    QProcess simProcess;
-    // clang-format off
-    // Example of how to forward prints from ros process with our node (we don't use it with the simProcess so we don't pollute the terminal)
-    //QObject::connect(&simProcess, &QProcess::readyReadStandardOutput, [&simProcess](){ forwardPrints(simProcess); });
-    //QObject::connect(&simProcess, &QProcess::readyReadStandardError, [&simProcess](){ forwardPrints(simProcess); });
-    // clang-format on
-
-    // Forward the sim log in a terminal emulator so we don't pollute the GUI terminal
-    simProcess.start("xterm",
-                     QStringList() << "-e"
-                                   << "bash -c 'ros2 launch f1tenth_gym_ros gym_bridge_launch.py; exec bash'");
-
     int ret = QApplication::exec();
-
-    simProcess.terminate();
-    if (!simProcess.waitForFinished(3000))
-    {
-        simProcess.kill();
-    }
 
     return ret;
 }
@@ -109,12 +91,6 @@ void nodeThreadFunc(std::shared_ptr<rclcpp::Node> node_)
     rosExecutor.spin();
 
     rosExecutor.remove_node(node_);
-}
-
-void forwardPrints(QProcess& process_)
-{
-    std::cout << process_.readAllStandardOutput().toStdString();
-    std::cerr << process_.readAllStandardError().toStdString();
 }
 
 #ifndef __INTELLISENSE__
