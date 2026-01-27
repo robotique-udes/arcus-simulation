@@ -147,8 +147,8 @@ def generate_launch_description():
             ('/scan', '/scan'),
             ('/tf', '/tf'),
             ('/tf_static', '/tf_static'),
-        ],
-        arguments=['--ros-args', '--log-level', 'warn']
+            ("/odom", "/odom/filtered")
+        ]
     )
     # === Finalize ===
     ld.add_action(rviz_node)
