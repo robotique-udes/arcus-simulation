@@ -48,12 +48,6 @@ for pt in outer_pts:
         filtered_outer_pts.append([int(x), int(y)])
 filtered_outer_pts = np.array(filtered_outer_pts)
 
-# --- Display filtered outer points ---
-outer_display = contour_img.copy()
-for pt in filtered_outer_pts:
-    cv2.circle(outer_display, tuple(pt), 2, (255, 0, 0), -1)
-cv2.imshow("Filtered Outer Points", outer_display)
-
 tree = cKDTree(filtered_outer_pts)
 
 # --- Helper functions ---
@@ -108,20 +102,27 @@ for i in range(len(inner_pts)):
 
 cv2.imshow("Inner to Closest Outer Points", closest_display)
 
-# --- Build final polygon ---
+# --- Build final polygon and display BFS gaps ---
 gap_threshold = 75
 full_outer_path = []
+gap_display = contour_img.copy()
 
 for i in range(len(unique_closest_points)):
     start = tuple(unique_closest_points[i].astype(int))
     goal = tuple(unique_closest_points[(i+1) % len(unique_closest_points)].astype(int))
     if np.linalg.norm(np.array(start) - np.array(goal)) > gap_threshold:
+        # Use BFS for large gap
         path_segment = bfs_path(binary, start, goal)
+        # Draw BFS path in green
+        for j in range(1, len(path_segment)):
+            cv2.line(gap_display, path_segment[j-1], path_segment[j], (0,255,0), 1)
     else:
         path_segment = [start, goal]
     if i > 0:
         path_segment = path_segment[1:]
     full_outer_path.extend(path_segment)
+
+cv2.imshow("Contours with BFS Gaps", gap_display)
 
 full_outer_path = np.array(full_outer_path, dtype=np.int32).reshape(-1,1,2)
 cv2.polylines(contour_img, [full_outer_path], isClosed=True, color=(0,0,255), thickness=3)
