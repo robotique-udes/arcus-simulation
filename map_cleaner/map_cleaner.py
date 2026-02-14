@@ -1,126 +1,121 @@
 import cv2
 import numpy as np
+from scipy.spatial import cKDTree
+from collections import deque
 
-# Load PGM image
+# --- Load PGM image ---
 img = cv2.imread("slam_map.pgm", cv2.IMREAD_GRAYSCALE)
 
-# --- Threshold ---
+# --- Threshold and cleanup ---
 binary = cv2.inRange(img, 0, 60)
-
-# --- Morphological cleanup ---
 kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
 binary = cv2.dilate(binary, kernel, iterations=1)
 
-# --- Remove small connected components (noise filtering) ---
+# --- Remove small connected components ---
 num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-
 min_area = 500
-
 filtered = np.zeros_like(binary)
-
-for i in range(1, num_labels):  # skip background
+for i in range(1, num_labels):
     if stats[i, cv2.CC_STAT_AREA] >= min_area:
         filtered[labels == i] = 255
-
 binary = filtered
 
-# ----- CONTOURS -----
-contours, _ = cv2.findContours(
-    binary,
-    cv2.RETR_EXTERNAL,
-    cv2.CHAIN_APPROX_SIMPLE
-)
-
+# --- Find contours ---
+contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 contour_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
-# ----- INNER CONTOUR -----
+# --- Inner contour (largest) ---
 inner = max(contours, key=cv2.contourArea)
-epsilon_inner = 0.01 * cv2.arcLength(inner, True)
-approx_inner = cv2.approxPolyDP(inner, epsilon_inner, True)
-
+epsilon = 0.01 * cv2.arcLength(inner, True)
+approx_inner = cv2.approxPolyDP(inner, epsilon, True)
 cv2.drawContours(contour_img, [approx_inner], -1, (0, 255, 0), 3)
 
-# ----- OUTER CONTOUR -----
-import numpy as np
-from scipy.spatial import cKDTree
-import cv2
+# --- Outer contour points ---
+min_distance = 10
+sample_step = 1
 
-min_distance = 10  # minimum pixels away from inner contour
-sample_step = 1   # sample every pixel along edges
+inner_pts = approx_inner.reshape(-1, 2)
+outer_pts = np.column_stack(np.where(binary > 0))[:, ::-1]  # y,x -> x,y
 
-inner_pts = approx_inner.reshape(-1, 2)  # Nx2 array
-outer_pts = np.column_stack(np.where(binary > 0))  # y,x coords
-outer_pts = outer_pts[:, ::-1]  # to x,y
-
-# Filter outer points: outside inner contour & min_distance away
+# ----- Filter outer points: must be outside inner contour and at least min_distance away -----
 filtered_outer_pts = []
 for pt in outer_pts:
-    x, y = float(pt[0]), float(pt[1])
+    x, y = float(pt[0]), float(pt[1])  # convert to Python floats
+    # Check if point is outside inner contour
     dist = cv2.pointPolygonTest(approx_inner, (x, y), measureDist=True)
-    if dist < -min_distance:
-        filtered_outer_pts.append([x, y])
+    if dist < -min_distance:  # negative = outside, check min_distance
+        filtered_outer_pts.append([int(x), int(y)])  # store as int for drawing later
 
 filtered_outer_pts = np.array(filtered_outer_pts)
-if filtered_outer_pts.shape[0] == 0:
-    print("Warning: no outer points found with given min_distance!")
-    filtered_outer_pts = outer_pts  # fallback
 
-# Build KD-tree for nearest neighbor search
 tree = cKDTree(filtered_outer_pts)
 
-# Function to linearly interpolate points between two vertices
+# --- Helper functions ---
 def interpolate_points(p1, p2, step=1):
     dist = np.linalg.norm(p2 - p1)
     num_points = max(int(dist // step), 1)
     return np.linspace(p1, p2, num=num_points, endpoint=True)
 
-# Remove consecutive duplicate points to avoid line artifacts
-def remove_consecutive_duplicates(points):
-    filtered = [points[0]]
-    for p in points[1:]:
-        if not np.array_equal(p, filtered[-1]):
-            filtered.append(p)
-    return np.array(filtered)
+def bfs_path(binary_img, start, goal):
+    h, w = binary_img.shape
+    visited = np.zeros((h, w), dtype=bool)
+    prev = np.full((h, w, 2), -1, dtype=int)
+    queue = deque([start])
+    visited[start[1], start[0]] = True
+    neighbors = [(-1,0),(1,0),(0,-1),(0,1),(-1,-1),(-1,1),(1,-1),(1,1)]
 
-# --- Initialize a set to keep track of used outer points ---
+    while queue:
+        x, y = queue.popleft()
+        if (x, y) == goal:
+            path = []
+            while (x, y) != start:
+                path.append((x, y))
+                x, y = prev[y, x]
+            path.append(start)
+            return path[::-1]
+        for dx, dy in neighbors:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < w and 0 <= ny < h and not visited[ny, nx] and binary_img[ny, nx] > 0:
+                visited[ny, nx] = True
+                prev[ny, nx] = (x, y)
+                queue.append((nx, ny))
+    return [start, goal]
+
+# --- Map inner contour to unique closest outer points ---
 used_indices = set()
 unique_closest_points = []
 
 for i in range(len(inner_pts)):
     p_start = inner_pts[i]
-    p_end = inner_pts[(i + 1) % len(inner_pts)]  # wrap around
-    
-    interp_points = interpolate_points(p_start, p_end, step=sample_step)
-    
+    p_end = inner_pts[(i + 1) % len(inner_pts)]
+    interp_points = interpolate_points(p_start, p_end, sample_step)
     for pt in interp_points:
-        # Query multiple nearest neighbors to find one not used yet
-        distances, indices = tree.query((float(pt[0]), float(pt[1])), k=10)  # check up to 10 nearest
-        
-        chosen_idx = None
-        for idx in indices:
-            if idx not in used_indices:
-                chosen_idx = idx
-                break
-        
-        # If all neighbors used, fallback to closest anyway
-        if chosen_idx is None:
-            chosen_idx = indices[0]
-        
+        distances, indices = tree.query(tuple(pt), k=10)
+        chosen_idx = next((idx for idx in indices if idx not in used_indices), indices[0])
         used_indices.add(chosen_idx)
         unique_closest_points.append(filtered_outer_pts[chosen_idx])
 
-# Remove consecutive duplicates as before
-polygon_pts = remove_consecutive_duplicates(unique_closest_points).astype(np.int32).reshape(-1, 1, 2)
+# --- Build final polygon ---
+gap_threshold = 75
+full_outer_path = []
 
-# Draw the polygon linking all unique closest outer points
-cv2.polylines(contour_img, [polygon_pts], isClosed=True, color=(0, 0, 255), thickness=3)
+for i in range(len(unique_closest_points)):
+    start = tuple(unique_closest_points[i].astype(int))
+    goal = tuple(unique_closest_points[(i+1) % len(unique_closest_points)].astype(int))
+    if np.linalg.norm(np.array(start) - np.array(goal)) > gap_threshold:
+        path_segment = bfs_path(binary, start, goal)
+    else:
+        path_segment = [start, goal]
+    if i > 0:
+        path_segment = path_segment[1:]
+    full_outer_path.extend(path_segment)
 
-
+full_outer_path = np.array(full_outer_path, dtype=np.int32).reshape(-1,1,2)
+cv2.polylines(contour_img, [full_outer_path], isClosed=True, color=(0,0,255), thickness=3)
 
 # --- Show results ---
 cv2.imshow("Original", img)
 cv2.imshow("Binary", binary)
-cv2.imshow("Inner Contour", contour_img)
-
+cv2.imshow("Contours", contour_img)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
