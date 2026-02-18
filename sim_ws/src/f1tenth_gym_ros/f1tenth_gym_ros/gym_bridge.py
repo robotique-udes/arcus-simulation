@@ -34,7 +34,7 @@ from geometry_msgs.msg import Quaternion
 from ackermann_msgs.msg import AckermannDriveStamped
 from tf2_ros import TransformBroadcaster
 
-import gym
+import gymnasium as gym
 import numpy as np
 from transforms3d import euler
 import glob
@@ -96,6 +96,7 @@ class GymBridge(Node):
         self.get_logger().info(f"Loading map from {map_path + map_ext}")
         # env backend
         self.env = gym.make('f110_gym:f110-v0',
+                            disable_env_checker=True,
                             map=map_path,
                             map_ext=map_ext,
                             num_agents=num_agents)
@@ -142,7 +143,11 @@ class GymBridge(Node):
             opp_ego_odom_topic = self.opp_namespace + '/' + self.get_parameter('opp_ego_odom_topic').value
         else:
             self.has_opp = False
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta]]))
+            self.obs, info = self.env.reset(
+                options={"poses": np.array([[sx, sy, stheta]])}
+            )
+            self.done = False
+
             self.ego_scan = list(self.obs['scans'][0])
 
         # sim physical step timer

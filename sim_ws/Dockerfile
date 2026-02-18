@@ -20,6 +20,7 @@ RUN apt-get update --fix-missing && \
     apt-get install -y git \
     nano \
     vim \
+    tmux \
     python3-pip \
     libeigen3-dev \
     qt6-base-dev \
@@ -54,9 +55,8 @@ RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
 RUN echo -e "b() { \n    source /opt/ros/humble/setup.bash\n    cd /sim_ws || exit \n   colcon build "$@" --symlink-install\n    source install/local_setup.bash\n   \n}" >> ~/.bashrc
 
 # Fix for 'no module name 'numba' with docker compose 2.40
-# Seems to be a conflict between f110_gym and openAi gym
-ENV PYTHONPATH="/usr/local/lib/python3.10/dist-packages:${PYTHONPATH}"
-RUN pip3 install transforms3d gym
+#ENV PYTHONPATH="/usr/local/lib/python3.10/dist-packages:${PYTHONPATH}"
+RUN pip3 install transforms3d gymnasium numba scipy pyglet
 
 # -----------------------------
 # Setup entrypoint

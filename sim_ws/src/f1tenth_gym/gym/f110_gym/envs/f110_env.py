@@ -25,9 +25,9 @@ Author: Hongrui Zheng
 '''
 
 # gym imports
-import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
+import gymnasium as gym
+from gymnasium import error, spaces, utils
+from gymnasium.utils import seeding
 
 # base classes
 from f110_gym.envs.base_classes import Simulator, Integrator
@@ -92,7 +92,7 @@ class F110Env(gym.Env):
             
             lidar_dist (float, default=0): vertical distance between LiDAR and backshaft
     """
-    metadata = {'render.modes': ['human', 'human_fast']}
+    metadata = {'render_modes': ['human', 'human_fast']}
 
     # rendering
     renderer = None
@@ -303,7 +303,7 @@ class F110Env(gym.Env):
 
         return obs, reward, done, info
 
-    def reset(self, poses):
+    def reset(self, *, seed=None, options=None):
         """
         Reset the gym environment by given poses
 
@@ -316,6 +316,11 @@ class F110Env(gym.Env):
             done (bool): if the simulation is done
             info (dict): auxillary information dictionary
         """
+        if options is not None and "poses" in options:
+            poses = options["poses"]
+        else:
+            poses = None
+
         # reset counters and data members
         self.current_time = 0.0
         self.collisions = np.zeros((self.num_agents, ))
@@ -346,7 +351,9 @@ class F110Env(gym.Env):
             'lap_counts': obs['lap_counts']
             }
         
-        return obs, reward, done, info
+        info = {}
+        return obs, info
+
 
     def update_map(self, map_path, map_ext):
         """

@@ -25,9 +25,9 @@ Author: Hongrui Zheng
 '''
 
 # gym imports
-import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
+import gymnasium as gym
+from gymnasium import error, spaces, utils
+from gymnasium.utils import seeding
 
 # zmq imports
 import zmq
@@ -62,7 +62,7 @@ class F110Env(gym.Env, utils.EzPickle):
 
     should be initialized with a map, a timestep, and number of agents
     """
-    metadata = {'render.modes': []}
+    metadata = {'render_modes': []}
 
     def __init__(self):
         # simualtor params
