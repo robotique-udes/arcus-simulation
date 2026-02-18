@@ -28,22 +28,20 @@ contour_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
 # --- Inner contour (largest) ---
 inner = max(contours, key=cv2.contourArea)
-epsilon = 0.01 * cv2.arcLength(inner, True)
-approx_inner = cv2.approxPolyDP(inner, epsilon, True)
-cv2.drawContours(contour_img, [approx_inner], -1, (0, 255, 0), 3)
+cv2.drawContours(contour_img, [inner], -1, (0, 255, 0), 3)
 
 # --- Outer contour points ---
 min_distance = 10
 sample_step = 1
 
-inner_pts = approx_inner.reshape(-1, 2)
+inner_pts = inner.reshape(-1, 2)
 outer_pts = np.column_stack(np.where(binary > 0))[:, ::-1]  # y,x -> x,y
 
 # ----- Filter outer points: must be outside inner contour and at least min_distance away -----
 filtered_outer_pts = []
 for pt in outer_pts:
     x, y = float(pt[0]), float(pt[1])
-    dist = cv2.pointPolygonTest(approx_inner, (x, y), measureDist=True)
+    dist = cv2.pointPolygonTest(inner, (x, y), measureDist=True)
     if dist < -min_distance:
         filtered_outer_pts.append([int(x), int(y)])
 filtered_outer_pts = np.array(filtered_outer_pts)
