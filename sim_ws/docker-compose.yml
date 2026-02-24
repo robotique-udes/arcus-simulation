@@ -15,6 +15,9 @@ services:
       - /dev/dri:/dev/dri
     environment:
       - DISPLAY=${DISPLAY}
+      - MESA_GL_VERSION_OVERRIDE=3.3
+      - MESA_GLSL_VERSION_OVERRIDE=330
+
     network_mode: host
     stdin_open: true
     tty: true

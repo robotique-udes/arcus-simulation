@@ -20,6 +20,7 @@ RUN apt-get update --fix-missing && \
     apt-get install -y git \
     nano \
     vim \
+    tmux \
     python3-pip \
     libeigen3-dev \
     qt6-base-dev \
@@ -28,6 +29,8 @@ RUN apt-get update --fix-missing && \
     qt6-tools-dev-tools \
     libgl1-mesa-glx \
     libgl1-mesa-dri \
+    mesa-utils \
+    libglu1-mesa \
     ros-humble-rviz2 \
     ros-humble-ackermann-msgs \
     ros-humble-nav-msgs \
@@ -47,16 +50,15 @@ RUN apt-get update --fix-missing && \
     ros-humble-joy-teleop \
     x11-apps \
     x11-apps xterm \
-    clang-format
+    clang-format 
 
 RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
 
 RUN echo -e "b() { \n    source /opt/ros/humble/setup.bash\n    cd /sim_ws || exit \n   colcon build "$@" --symlink-install\n    source install/local_setup.bash\n   \n}" >> ~/.bashrc
 
 # Fix for 'no module name 'numba' with docker compose 2.40
-# Seems to be a conflict between f110_gym and openAi gym
-ENV PYTHONPATH="/usr/local/lib/python3.10/dist-packages:${PYTHONPATH}"
-RUN pip3 install transforms3d gym
+RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow
+
 
 # -----------------------------
 # Setup entrypoint
