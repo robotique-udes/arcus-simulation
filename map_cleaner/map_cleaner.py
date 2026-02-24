@@ -89,14 +89,23 @@ for i in range(len(inner_pts)):
     p_end = inner_pts[(i + 1) % len(inner_pts)]
     interp_points = interpolate_points(p_start, p_end, sample_step)
     for pt in interp_points:
-        distances, indices = tree.query(tuple(pt), k=10)
-        chosen_idx = next((idx for idx in indices if idx not in used_indices), indices[0])
+        # Query nearest 20 outer points
+        distances, indices = tree.query(tuple(pt), k=20)
+        # Find the first outer point not already used
+        chosen_idx = None
+        for idx in indices:
+            if idx not in used_indices:
+                chosen_idx = idx
+                break
+        if chosen_idx is None:
+            # All nearby points are used, skip this point
+            continue
         used_indices.add(chosen_idx)
         outer_pt = filtered_outer_pts[chosen_idx]
         unique_closest_points.append(outer_pt)
-        # Draw connection from inner to outer point
+        # Visualization
         cv2.circle(closest_display, tuple(outer_pt), 3, (0,0,255), -1)
-        cv2.line(closest_display, tuple(pt.astype(int)), tuple(outer_pt), (0,255,255), 1)
+        cv2.line(closest_display, tuple(pt.astype(int)), tuple(outer_pt), (255,0,0), 1)
 
 cv2.imshow("Inner to Closest Outer Points", closest_display)
 
