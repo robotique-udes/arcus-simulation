@@ -147,16 +147,7 @@ inner_contour = inner.reshape(-1, 1, 2).astype(np.int32)
 # Draw outer contour in black
 cv2.polylines(
     contour_only,
-    [outer_contour],
-    isClosed=True,
-    color=0,   # black
-    thickness=3
-)
-
-# Draw inner contour in black
-cv2.polylines(
-    contour_only,
-    [inner_contour],
+    [outer_contour, inner_contour],
     isClosed=True,
     color=0,   # black
     thickness=3
