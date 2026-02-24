@@ -134,6 +134,37 @@ cv2.imshow("Contours with BFS Gaps", gap_display)
 full_outer_path = np.array(full_outer_path, dtype=np.int32).reshape(-1,1,2)
 cv2.polylines(contour_img, [full_outer_path], isClosed=True, color=(0,0,255), thickness=3)
 
+# --- Save inner + outer contours only (black on white background) ---
+
+# Create white canvas
+h, w = img.shape
+contour_only = np.ones((h, w), dtype=np.uint8) * 255  # white background
+
+# Ensure correct shapes
+outer_contour = full_outer_path
+inner_contour = inner.reshape(-1, 1, 2).astype(np.int32)
+
+# Draw outer contour in black
+cv2.polylines(
+    contour_only,
+    [outer_contour],
+    isClosed=True,
+    color=0,   # black
+    thickness=3
+)
+
+# Draw inner contour in black
+cv2.polylines(
+    contour_only,
+    [inner_contour],
+    isClosed=True,
+    color=0,   # black
+    thickness=3
+)
+
+# Save as PNG
+cv2.imwrite("final_contours.png", contour_only)
+
 # --- Show final results ---
 cv2.imshow("Contours", contour_img)
 cv2.waitKey(0)
