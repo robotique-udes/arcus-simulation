@@ -46,8 +46,6 @@ for pt in outer_pts:
         filtered_outer_pts.append([int(x), int(y)])
 filtered_outer_pts = np.array(filtered_outer_pts)
 
-tree = cKDTree(filtered_outer_pts)
-
 # --- Helper functions ---
 def interpolate_points(p1, p2, step=1):
     dist = np.linalg.norm(p2 - p1)
@@ -79,33 +77,59 @@ def bfs_path(binary_img, start, goal):
                 queue.append((nx, ny))
     return [start, goal]
 
-# --- Map inner contour to unique closest outer points with visualization ---
-used_indices = set()
+def get_normal(p_prev, p_next):
+    tangent = p_next - p_prev
+    tangent = tangent / (np.linalg.norm(tangent) + 1e-6)
+    normal = np.array([-tangent[1], tangent[0]])  # 90° rotation
+    return normal
+
 unique_closest_points = []
 closest_display = contour_img.copy()
 
+max_search = 150
+
 for i in range(len(inner_pts)):
-    p_start = inner_pts[i]
-    p_end = inner_pts[(i + 1) % len(inner_pts)]
-    interp_points = interpolate_points(p_start, p_end, sample_step)
-    for pt in interp_points:
-        # Query nearest 20 outer points
-        distances, indices = tree.query(tuple(pt), k=20)
-        # Find the first outer point not already used
-        chosen_idx = None
-        for idx in indices:
-            if idx not in used_indices:
-                chosen_idx = idx
-                break
-        if chosen_idx is None:
-            # All nearby points are used, skip this point
+    p_prev = inner_pts[i - 1]
+    p_curr = inner_pts[i]
+    p_next = inner_pts[(i + 1) % len(inner_pts)]
+
+    normal = get_normal(p_prev, p_next)
+
+    # --- Ensure normal points OUTWARD ---
+    test_point = p_curr + normal * min_distance
+    dist_test = cv2.pointPolygonTest(inner, tuple(test_point.astype(float)), True)
+
+    # If still inside inner contour, flip normal
+    if dist_test >= 0:
+        normal = -normal
+
+    found = False
+
+    for d in range(min_distance, max_search):
+        probe = p_curr + normal * d
+        x, y = int(probe[0]), int(probe[1])
+
+        if not (0 <= x < binary.shape[1] and 0 <= y < binary.shape[0]):
             continue
-        used_indices.add(chosen_idx)
-        outer_pt = filtered_outer_pts[chosen_idx]
-        unique_closest_points.append(outer_pt)
-        # Visualization
-        cv2.circle(closest_display, tuple(outer_pt), 3, (0,0,255), -1)
-        cv2.line(closest_display, tuple(pt.astype(int)), tuple(outer_pt), (255,0,0), 1)
+
+        # --- MUST be valid outer region ---
+        if binary[y, x] == 0:
+            continue
+
+        # --- MUST be strictly outside inner contour ---
+        dist_inner = cv2.pointPolygonTest(inner, (float(x), float(y)), True)
+
+        if dist_inner < -min_distance:
+            unique_closest_points.append(np.array([x, y], dtype=np.int32))
+
+            cv2.circle(closest_display, (x, y), 3, (0, 0, 255), -1)
+            cv2.line(closest_display, tuple(p_curr), (x, y), (255, 0, 0), 1)
+
+            found = True
+            break
+
+    if not found:
+        continue
 
 cv2.imshow("Inner to Closest Outer Points", closest_display)
 
