@@ -83,6 +83,39 @@ def get_normal(p_prev, p_next):
     normal = np.array([-tangent[1], tangent[0]])  # 90° rotation
     return normal
 
+def reorder_points_nearest(points):
+    if len(points) == 0:
+        return np.array([])
+
+    # Force numpy array
+    points = np.asarray(points, dtype=np.int32)
+
+    used = np.zeros(len(points), dtype=bool)
+    ordered = []
+
+    # Start from leftmost point
+    start_idx = np.argmin(points[:, 0])
+    current_idx = start_idx
+
+    ordered.append(points[current_idx])
+    used[current_idx] = True
+
+    for _ in range(len(points) - 1):
+        current_point = points[current_idx]
+
+        remaining = np.where(~used)[0]
+        if len(remaining) == 0:
+            break
+
+        dists = np.linalg.norm(points[remaining] - current_point, axis=1)
+        nearest_idx = remaining[np.argmin(dists)]
+
+        ordered.append(points[nearest_idx])
+        used[nearest_idx] = True
+        current_idx = nearest_idx
+
+    return np.array(ordered, dtype=np.int32)
+
 unique_closest_points = []
 closest_display = contour_img.copy()
 
@@ -131,31 +164,11 @@ for i in range(len(inner_pts)):
     if not found:
         continue
 
+unique_closest_points = reorder_points_nearest(unique_closest_points)
+
 cv2.imshow("Inner to Closest Outer Points", closest_display)
 
-# --- Build final polygon and display BFS gaps ---
-gap_threshold = 75
-full_outer_path = []
-gap_display = contour_img.copy()
-
-for i in range(len(unique_closest_points)):
-    start = tuple(unique_closest_points[i].astype(int))
-    goal = tuple(unique_closest_points[(i+1) % len(unique_closest_points)].astype(int))
-    if np.linalg.norm(np.array(start) - np.array(goal)) > gap_threshold:
-        # Use BFS for large gap
-        path_segment = bfs_path(binary, start, goal)
-        # Draw BFS path in green
-        for j in range(1, len(path_segment)):
-            cv2.line(gap_display, path_segment[j-1], path_segment[j], (0,255,0), 1)
-    else:
-        path_segment = [start, goal]
-    if i > 0:
-        path_segment = path_segment[1:]
-    full_outer_path.extend(path_segment)
-
-cv2.imshow("Contours with BFS Gaps", gap_display)
-
-full_outer_path = np.array(full_outer_path, dtype=np.int32).reshape(-1,1,2)
+full_outer_path = np.array(unique_closest_points, dtype=np.int32).reshape(-1,1,2)
 cv2.polylines(contour_img, [full_outer_path], isClosed=True, color=(0,0,255), thickness=3)
 
 # --- Save inner + outer contours only (black on white background) ---
