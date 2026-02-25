@@ -47,36 +47,6 @@ for pt in outer_pts:
 filtered_outer_pts = np.array(filtered_outer_pts)
 
 # --- Helper functions ---
-def interpolate_points(p1, p2, step=1):
-    dist = np.linalg.norm(p2 - p1)
-    num_points = max(int(dist // step), 1)
-    return np.linspace(p1, p2, num=num_points, endpoint=True)
-
-def bfs_path(binary_img, start, goal):
-    h, w = binary_img.shape
-    visited = np.zeros((h, w), dtype=bool)
-    prev = np.full((h, w, 2), -1, dtype=int)
-    queue = deque([start])
-    visited[start[1], start[0]] = True
-    neighbors = [(-1,0),(1,0),(0,-1),(0,1),(-1,-1),(-1,1),(1,-1),(1,1)]
-
-    while queue:
-        x, y = queue.popleft()
-        if (x, y) == goal:
-            path = []
-            while (x, y) != start:
-                path.append((x, y))
-                x, y = prev[y, x]
-            path.append(start)
-            return path[::-1]
-        for dx, dy in neighbors:
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < w and 0 <= ny < h and not visited[ny, nx] and binary_img[ny, nx] > 0:
-                visited[ny, nx] = True
-                prev[ny, nx] = (x, y)
-                queue.append((nx, ny))
-    return [start, goal]
-
 def get_normal(p_prev, p_next):
     tangent = p_next - p_prev
     tangent = tangent / (np.linalg.norm(tangent) + 1e-6)
