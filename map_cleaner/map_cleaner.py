@@ -1,7 +1,5 @@
 import cv2
 import numpy as np
-from scipy.spatial import cKDTree
-from collections import deque
 
 # --- Load PGM image ---
 img = cv2.imread("slam_map.pgm", cv2.IMREAD_GRAYSCALE)
@@ -24,10 +22,11 @@ cv2.imshow("Binary", binary)
 
 # --- Find contours ---
 contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-contour_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
 # --- Inner contour (largest) ---
 inner = max(contours, key=cv2.contourArea)
+
+contour_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 cv2.drawContours(contour_img, [inner], -1, (0, 255, 0), 3)
 
 # --- Outer contour points ---
