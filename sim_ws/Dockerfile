@@ -48,6 +48,7 @@ RUN apt-get update --fix-missing && \
     ros-humble-udp-msgs \
     ros-humble-teleop-twist-keyboard \
     ros-humble-joy-teleop \
+    ros-humble-rmw-cyclonedds-cpp \
     x11-apps \
     x11-apps xterm \
     clang-format 
