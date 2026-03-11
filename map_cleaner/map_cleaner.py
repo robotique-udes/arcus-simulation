@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # --- Load PGM image ---
-img = cv2.imread("slam_map.pgm", cv2.IMREAD_GRAYSCALE)
+img = cv2.imread("Austin_map.png", cv2.IMREAD_GRAYSCALE)
 cv2.imshow("Original", img)
 
 # --- Threshold and cleanup ---
@@ -32,6 +32,29 @@ for cnt in contours:
 
     if area / max_area > 0.5:
         valid_contours.append(cnt)
+
+# --- Filter countours that are similar to others ---
+similarity_thresh = 0.1
+
+valid_contours = sorted(valid_contours, key=cv2.contourArea, reverse=True)
+
+filtered_contours = []
+
+for cnt in valid_contours:
+    area = cv2.contourArea(cnt)
+
+    keep = True
+    for kept in filtered_contours:
+        kept_area = cv2.contourArea(kept)
+
+        if abs(area - kept_area) / kept_area < similarity_thresh:
+            keep = False
+            break
+
+    if keep:
+        filtered_contours.append(cnt)
+
+valid_contours = filtered_contours
 
 # --- Inner contour ---
 inner = min(valid_contours, key=cv2.contourArea)
