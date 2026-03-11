@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # --- Load PGM image ---
-img = cv2.imread("Austin_map.png", cv2.IMREAD_GRAYSCALE)
+img = cv2.imread("slam_map.pgm", cv2.IMREAD_GRAYSCALE)
 cv2.imshow("Original", img)
 
 # --- Threshold and cleanup ---
