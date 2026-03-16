@@ -122,7 +122,7 @@ def select_contour(img, contours, title, highlight=None):
         cv2.drawContours(display, contours, idx, (0, 0, 255), 3)
 
         cv2.putText(display,
-                    f"{title} ({idx+1}/{len(contours)})",
+                    f"{title} ({idx+1}/{len(contours)}) LEFT/RIGHT/ENTER",
                     (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.8,
