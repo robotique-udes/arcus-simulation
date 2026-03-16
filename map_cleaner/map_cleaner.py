@@ -174,7 +174,7 @@ binary = filtered
 # FIND CONTOURS
 # ---------------------------------------------------------
 
-contours, _ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
 # ---------------------------------------------------------
 # USER SELECT FIRST CONTOUR
