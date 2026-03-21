@@ -16,11 +16,8 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
-    static constexpr const char* SIM_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch f1tenth_gym_ros gym_bridge_launch.py";
-    static constexpr const char* VISUALIZATION_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch visualization visualization.launch.py";
-    static constexpr const char* GAP_FOLLOW_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch gap_follow gap_follow.launch.py";
-    static constexpr const char* PURE_PURSUIT_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch pure_pursuit pure_pursuit.launch.py";
-    static constexpr const char* MAP_SAVER_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch map_saver map_saver.launch.py";
+    static constexpr const char* VISUALIZATION_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch f1tenth_gym_ros visualize_launch.py";
+    static constexpr const char* CONTROLLER_DRIVER = "source /opt/ros/humble/setup.bash && ros2 launch drive_controller drive_controller.launch.py";
 
   public:
     explicit MainWindow(std::shared_ptr<rclcpp::Node> guiNode_);
@@ -34,14 +31,8 @@ class MainWindow : public QMainWindow
     QExampleWidget _exampleWidget;
     QTopicSelector _topicSelector;
 
-    QProcessHandler _simuProcess;
     QProcessHandler _visualizationProcess;
-    QProcessHandler _gapFollowProcess;
-    QProcessHandler _purePusuitProcess;
-    QProcessHandler _mapSaverProcess;
-
-
-
+    QProcessHandler _controllerDriver;
 };
 
 #endif  // MAIN_WINDOWS_HPP

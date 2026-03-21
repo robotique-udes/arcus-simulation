@@ -1,5 +1,6 @@
 services:
   arcus:
+    privileged: true
     build: .
     container_name: arcus
     volumes:
@@ -11,8 +12,6 @@ services:
       - ../sim_ws/src/arcus_gui:/sim_ws/src/arcus_gui
       - ../../arcus:/sim_ws/src/arcus
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    devices:
-      - /dev/dri:/dev/dri
     environment:
       - DISPLAY=${DISPLAY}
       - MESA_GL_VERSION_OVERRIDE=3.3
