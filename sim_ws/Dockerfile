@@ -48,6 +48,7 @@ RUN apt-get update --fix-missing && \
     ros-humble-udp-msgs \
     ros-humble-teleop-twist-keyboard \
     ros-humble-joy-teleop \
+    ros-humble-joy \
     ros-humble-rmw-cyclonedds-cpp \
     x11-apps \
     x11-apps xterm \
@@ -55,7 +56,7 @@ RUN apt-get update --fix-missing && \
 
 RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
 
-RUN echo -e "b() { \n    source /opt/ros/humble/setup.bash\n    cd /sim_ws || exit \n   colcon build "$@" --symlink-install\n    source install/local_setup.bash\n   \n}" >> ~/.bashrc
+RUN echo -e "b() { \n    source /opt/ros/humble/setup.bash\n    cd /sim_ws || exit \n   colcon build "$@" --packages-ignore range_libc particle_filter --symlink-install\n    source install/local_setup.bash\n   \n}" >> ~/.bashrc
 
 # Fix for 'no module name 'numba' with docker compose 2.40
 RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow
