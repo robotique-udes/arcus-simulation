@@ -10,6 +10,7 @@ services:
       - ../sim_ws/src/scripts:/sim_ws/src/scripts
       - ../sim_ws/src/visualization:/sim_ws/src/visualization
       - ../sim_ws/src/arcus_gui:/sim_ws/src/arcus_gui
+      - ../sim_ws/src/map_cleaner:/sim_ws/src/map_cleaner
       - ../../arcus:/sim_ws/src/arcus
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
     environment:
