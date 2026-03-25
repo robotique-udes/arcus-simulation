@@ -13,6 +13,7 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _centralWidget.setLayout(&_gridLayout);
     _gridLayout.addWidget(&_visualizationProcess);
     _gridLayout.addWidget(&_controllerDriver);
+    _gridLayout.addWidget(&_speedWidget);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event_)
