@@ -5,7 +5,8 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _exampleWidget(guiNode_, this),
     _topicSelector(this, "sensor_msgs/msg/LaserScan", "LaserScan", guiNode_),
     _visualizationProcess(this, "Visualization", VISUALIZATION_PROCESS_CMD, true),
-    _controllerDriver(this, "Controller Driver", CONTROLLER_DRIVER, true)
+    _controllerDriver(this, "Controller Driver", CONTROLLER_DRIVER, true),
+    _speedWidget(guiNode_, this)
 {
     this->setCentralWidget(&_centralWidget);
 
