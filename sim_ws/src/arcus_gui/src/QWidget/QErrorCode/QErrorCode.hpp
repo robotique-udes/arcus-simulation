@@ -3,6 +3,7 @@
 
 #include "UI_ErrorCode.h"
 #include "nav_msgs/msg/odometry.hpp"
+#include "arcus_msgs/msg/"
 
 #include <rclcpp/rclcpp.hpp>
 #include <QtWidgets/QWidget>
