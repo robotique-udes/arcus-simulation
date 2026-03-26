@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <QGridLayout>
 #include "QWidget/QExampleWidget/QExampleWidget.hpp"
+#include "QWidget/QExampleWidget/QSpeedWidget.hpp"
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -33,6 +34,8 @@ class MainWindow : public QMainWindow
 
     QProcessHandler _visualizationProcess;
     QProcessHandler _controllerDriver;
+
+    QSpeedWidget _speedWidget;
 };
 
 #endif  // MAIN_WINDOWS_HPP
