@@ -13,10 +13,6 @@ class QSpeedWidget : public QWidget
 
     static constexpr const char* TOPIC_ODOM = "/odometry/filtered";
 
-    //static constexpr const size_t DELAY_CHECK_ODOM_MS = 100UL;
-    //static constexpr const size_t WATCH_DOG_DELAY_MS = 1000UL;
-    //static constexpr const double WATCH_DOG_TIMEOUT_S = 1.0F;
-
   public:
     QSpeedWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
 
@@ -33,19 +29,10 @@ class QSpeedWidget : public QWidget
     void initOdomSubscriber(void);
 
     void CB_odom(nav_msgs::msg::Odometry& msg_);
-    //void CB_odomPubCount();
-    //void CB_odomTimeout();
 
     std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> _sub_odom;
 
-    //rclcpp::TimerBase::SharedPtr _timer_odomPub;
-    //rclcpp::TimerBase::SharedPtr _watchdog_odom;
-
-    //rclcpp::Time _lastOdomMsgTime;
-
     std::shared_ptr<rclcpp::Node> _node;
-
-    //rclcpp::Duration _odomTimeout;
 
     Ui::Speed _ui;
 };

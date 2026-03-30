@@ -36,7 +36,7 @@ add_custom_target(run_generate_ui ALL DEPENDS ${CMAKE_BINARY_DIR}/ui_generated)
 add_executable(main_gui src/gui.cpp
     src/MainWindow.cpp
     src/QWidget/QExampleWidget/QExampleWidget.cpp
-    src/QWidget/QExampleWidget/QSpeedWidget.cpp
+    src/QWidget/QSpeedWidget/QSpeedWidget.cpp
     src/Global/Helper/QTopicSelector/QTopicSelector.cpp
     src/Global/Helper/QProcessHandler/QProcessHandler.cpp
 )

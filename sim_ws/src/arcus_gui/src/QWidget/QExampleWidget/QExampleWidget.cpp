@@ -19,8 +19,8 @@ void QExampleWidget::setupUI(void)
 {   
     _ui.title->setText("Car Position: ");
     _ui.posXText->setText("X : --.-- ");
-    _ui.posYText->setText("Car --.--: ");
-    _ui.posZText->setText("Car --.--: ");
+    _ui.posYText->setText("Y : --.--: ");
+    _ui.posZText->setText("Z : --.--: ");
 }
 
 void QExampleWidget::initOdomSubscriber(void)

@@ -31,18 +31,6 @@ void QSpeedWidget::initOdomSubscriber(void)
                                                                         {
                                                                             this->CB_odom(msg_);
                                                                         });
-
-        /*_timer_odomPub = _node->create_wall_timer(std::chrono::milliseconds(DELAY_CHECK_ODOM_MS),
-                                                  [this](void)
-                                                  {
-                                                      this->CB_odomPubCount();
-                                                  });
-
-        _watchdog_odom = _node->create_wall_timer(std::chrono::milliseconds(WATCH_DOG_DELAY_MS),
-                                                  [this](void)
-                                                  {
-                                                      this->CB_odomTimeout();
-                                                  });*/
     }
     else
     {
@@ -66,21 +54,3 @@ void QSpeedWidget::onUpdateSpeedUI(float speed_)
 {
     this->DisplayLCDUI(speed_);
 }
-
-/*void QSpeedWidget::CB_odomPubCount()
-{
-    _lastOdomMsgTime = _node->now();
-    size_t count = _node->count_publishers(TOPIC_ODOM);
-    if (!count)
-    {
-        _ui.title->setText("No Speed Received!");
-    }
-}*/
-
-/*void QSpeedWidget::CB_odomTimeout()
-{
-    if ((_node->now() - _lastOdomMsgTime) > _odomTimeout)
-    {
-        _ui.title->setText("No Speed Received!");
-    }
-}*/

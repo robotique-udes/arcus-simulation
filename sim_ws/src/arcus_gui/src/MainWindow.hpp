@@ -7,8 +7,10 @@
 #include <QCloseEvent>
 #include <QApplication>
 #include <QGridLayout>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 #include "QWidget/QExampleWidget/QExampleWidget.hpp"
-#include "QWidget/QExampleWidget/QSpeedWidget.hpp"
+#include "QWidget/QSpeedWidget/QSpeedWidget.hpp"
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -27,7 +29,7 @@ class MainWindow : public QMainWindow
     void closeEvent(QCloseEvent* event_) override;
 
     QWidget _centralWidget = QWidget(this);
-    QGridLayout _gridLayout = QGridLayout(&_centralWidget);
+    QVBoxLayout _mainLayout = QVBoxLayout(&_centralWidget);
 
     QExampleWidget _exampleWidget;
     QTopicSelector _topicSelector;

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1146</width>
-    <height>921</height>
+    <width>382</width>
+    <height>288</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,22 +16,43 @@
   <widget class="QWidget" name="verticalLayoutWidget_4">
    <property name="geometry">
     <rect>
-     <x>630</x>
-     <y>70</y>
-     <width>131</width>
-     <height>71</height>
+     <x>0</x>
+     <y>0</y>
+     <width>371</width>
+     <height>281</height>
     </rect>
    </property>
-   <layout class="QVBoxLayout" name="verticalLayout_5">
-    <item>
-     <widget class="QLabel" name="label_5">
-      <property name="text">
-       <string>Vitesse (m/s):</string>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="1" column="0">
+     <widget class="QLCDNumber" name="SpeedLCD_3">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
       </property>
      </widget>
     </item>
-    <item>
-     <widget class="QLCDNumber" name="SpeedLCD_3"/>
+    <item row="0" column="0">
+     <widget class="QLabel" name="label_5">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="font">
+       <font>
+        <family>Tlwg Typist</family>
+        <pointsize>31</pointsize>
+        <weight>75</weight>
+        <bold>true</bold>
+       </font>
+      </property>
+      <property name="text">
+       <string>Speed (m/s):</string>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>

@@ -10,16 +10,18 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
 {
     this->setCentralWidget(&_centralWidget);
 
-    _centralWidget.setLayout(&_gridLayout);
-    _gridLayout.addWidget(&_visualizationProcess);
-    _gridLayout.addWidget(&_controllerDriver);
-<<<<<<< HEAD
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    buttonLayout->addWidget(&_visualizationProcess);
+    buttonLayout->addWidget(&_controllerDriver);
 
-    _gridLayout.addWidget(&_exampleWidget);
-    _gridLayout.addWidget(&_topicSelector);
-=======
-    _gridLayout.addWidget(&_speedWidget);
->>>>>>> origin/EC_gui
+    QHBoxLayout* bottomLayout = new QHBoxLayout();
+    bottomLayout->addWidget(&_exampleWidget);
+    bottomLayout->addWidget(&_topicSelector);
+
+    // Add to main vertical layout
+    _mainLayout.addLayout(buttonLayout);
+    _mainLayout.addWidget(&_speedWidget, 1); // Give stretch to make it bigger
+    _mainLayout.addLayout(bottomLayout);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event_)
