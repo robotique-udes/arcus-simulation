@@ -91,7 +91,7 @@ class GymBridge(Node):
             map_ext = self.get_parameter('map_img_ext').value
         else: #Else map is default
             map_path = self.get_parameter('map_path').value
-            map_ext = '.png'
+            map_ext = '.pgm'
 
         self.get_logger().info(f"Loading map from {map_path + map_ext}")
         # env backend
