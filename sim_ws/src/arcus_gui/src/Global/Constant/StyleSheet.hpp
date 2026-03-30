@@ -33,7 +33,9 @@ namespace Constants::Style
 
     constexpr const char* STYLE_DARK_MODE = R"(
 QWidget {
-     background-color: #2e2e2e;
+    background-color: #2e2e2e;
+    border: 1px solid #4b4e52;
+    border-radius: 5px;
     color: #ffffff;
 }
 

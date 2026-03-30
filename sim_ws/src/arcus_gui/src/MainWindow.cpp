@@ -2,26 +2,27 @@
 
 MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     QMainWindow(nullptr),
-    _exampleWidget(guiNode_, this),
-    _topicSelector(this, "sensor_msgs/msg/LaserScan", "LaserScan", guiNode_),
-    _visualizationProcess(this, "Visualization", VISUALIZATION_PROCESS_CMD, true),
-    _controllerDriver(this, "Controller Driver", CONTROLLER_DRIVER, true),
-    _speedWidget(guiNode_, this)
+    _exampleWidget0(this),
+    _exampleWidget1(this),
+    _exampleWidget2(this),
+    _exampleWidget3(this),
+    _exampleWidget4(this),
+    _exampleWidget5(this),
+    _visualizationProcess(this, "Visualization", VISUALIZATION_PROCESS_CMD, true)
+    //_controllerDriver(this, "Controller Driver", CONTROLLER_DRIVER, true)
 {
+    
     this->setCentralWidget(&_centralWidget);
 
-    QHBoxLayout* buttonLayout = new QHBoxLayout();
-    buttonLayout->addWidget(&_visualizationProcess);
-    buttonLayout->addWidget(&_controllerDriver);
+    _gridLayout.addWidget(&_exampleWidget0, 0, 0);
+    _gridLayout.addWidget(&_exampleWidget1, 0, 1);
+    _gridLayout.addWidget(&_exampleWidget2, 0, 2);
+    _gridLayout.addWidget(&_exampleWidget3, 1, 0);
+    _gridLayout.addWidget(&_exampleWidget4, 1, 1);
+    _gridLayout.addWidget(&_exampleWidget5, 1, 2);
+    //_gridLayout.addWidget(&_visualizationProcess, 1, 2);
+    //_gridLayout.addWidget(&_controllerDriver, 2, 1);
 
-    QHBoxLayout* bottomLayout = new QHBoxLayout();
-    bottomLayout->addWidget(&_exampleWidget);
-    bottomLayout->addWidget(&_topicSelector);
-
-    // Add to main vertical layout
-    _mainLayout.addLayout(buttonLayout);
-    _mainLayout.addWidget(&_speedWidget, 1); // Give stretch to make it bigger
-    _mainLayout.addLayout(bottomLayout);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event_)

@@ -9,8 +9,6 @@
 #include <QGridLayout>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include "QWidget/QExampleWidget/QExampleWidget.hpp"
-#include "QWidget/QSpeedWidget/QSpeedWidget.hpp"
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -28,16 +26,22 @@ class MainWindow : public QMainWindow
   private:
     void closeEvent(QCloseEvent* event_) override;
 
-    QWidget _centralWidget = QWidget(this);
-    QVBoxLayout _mainLayout = QVBoxLayout(&_centralWidget);
+    QWidget _centralWidget = QWidget(this); // main widget that holds all other widgets, set as central widget of QMainWindow
+    QGridLayout _gridLayout = QGridLayout(&_centralWidget); // grid layout to hold child widgets
 
-    QExampleWidget _exampleWidget;
-    QTopicSelector _topicSelector;
+
+    QWidget _exampleWidget0;
+    QWidget _exampleWidget1;
+    QWidget _exampleWidget2;
+    QWidget _exampleWidget3;
+    QWidget _exampleWidget4;
+    QWidget _exampleWidget5;
 
     QProcessHandler _visualizationProcess;
-    QProcessHandler _controllerDriver;
+    //QProcessHandler _controllerDriver;
 
-    QSpeedWidget _speedWidget;
+
+
 };
 
 #endif  // MAIN_WINDOWS_HPP
