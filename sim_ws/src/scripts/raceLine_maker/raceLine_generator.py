@@ -854,8 +854,21 @@ def A_star_algo(
             if not (pr == r and pc == c):
                 prev_dir = (r - pr, c - pc)
                 new_dir  = (dr, dc)
-                if prev_dir != new_dir:
-                    turn_penalty = turn_weight
+
+                # Normalize directions
+                prev_norm = math.hypot(prev_dir[0], prev_dir[1])
+                new_norm  = math.hypot(new_dir[0], new_dir[1])
+
+                if prev_norm > 0 and new_norm > 0:
+                    dot = (prev_dir[0] * new_dir[0] + prev_dir[1] * new_dir[1]) / (prev_norm * new_norm)
+
+                    # Clamp for safety (floating point)
+                    dot = max(-1.0, min(1.0, dot))
+
+                    angle = math.acos(dot)  # radians, 0 → π
+
+                    # Scale penalty with angle
+                    turn_penalty = turn_weight * (angle / math.pi)
 
             g_new = (
                 grc
