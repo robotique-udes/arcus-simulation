@@ -740,54 +740,68 @@ def brushfire_algo(occupancyGrid, use8CellWindow=True):
 # A* with brushfire weights  (single segment)
 # ============================================================================
 
-def A_star_algo(occupancy_grid, brushfire_weights, safety_weight, start_pos, end_pos,
-                safety_penalty=None):
+def A_star_algo(
+    occupancy_grid,
+    brushfire_weights,
+    safety_weight,
+    start_pos,
+    end_pos,
+    safety_penalty=None,
+    turn_weight=0
+):
     '''
-    Finds the shortest, safest path from start_pos to end_pos using A* and
-    brushfire distance weights as a safety cost term.
+    Finds the shortest, safest, and smoother path from start_pos to end_pos
+    using A* with brushfire-based safety and turn penalties.
 
     Returns
     -------
     list of (row, col) or None if no path exists
     '''
+
     ROW, COL = occupancy_grid.shape
     occ_mask = (occupancy_grid == OCCUPIED)
 
+    sqrt2 = math.sqrt(2.0)
+
     for pos, name in [(start_pos, "Start"), (end_pos, "End")]:
-        if not (0 <= pos[0] < ROW and 0 <= pos[1] < COL):
+        r, c = pos
+        if not (0 <= r < ROW and 0 <= c < COL):
             print(f"{name} position {pos} is outside the map.")
             return None
-        if occupancy_grid[pos[0]][pos[1]] == OCCUPIED:
+        if occ_mask[r, c]:
             print(f"{name} position {pos} is inside an obstacle.")
             return None
+
+    sr, sc = start_pos
+    er, ec = end_pos
+
+    if (sr, sc) == (er, ec):
+        return [(sr, sc)]
 
     if safety_penalty is None:
         d_safe = np.clip(brushfire_weights.astype(np.float64), 1e-6, None)
         safety_penalty = safety_weight / (d_safe * d_safe)
 
     closed   = np.zeros((ROW, COL), dtype=np.bool_)
-    f        = np.full((ROW, COL), np.inf, dtype=np.float64)
     g        = np.full((ROW, COL), np.inf, dtype=np.float64)
+    f        = np.full((ROW, COL), np.inf, dtype=np.float64)
+
     parent_r = np.full((ROW, COL), -1, dtype=np.int32)
     parent_c = np.full((ROW, COL), -1, dtype=np.int32)
 
-    er, ec = end_pos
-    sqrt2 = math.sqrt(2.0)
-
     def h(r, c):
-        # Octile distance for 8-connected grids; admissible with current move costs.
         dr = abs(r - er)
         dc = abs(c - ec)
         return (dr + dc) + (sqrt2 - 2.0) * min(dr, dc)
 
-    sr, sc         = start_pos
-    g[sr][sc]      = 0.0
-    f[sr][sc]      = h(sr, sc)
+    g[sr, sc] = 0.0
+    f[sr, sc] = h(sr, sc)
+
     parent_r[sr, sc] = sr
     parent_c[sr, sc] = sc
 
     open_list = []
-    heapq.heappush(open_list, (f[sr][sc], sr, sc))
+    heapq.heappush(open_list, (f[sr, sc], sr, sc))
 
     directions = (
         (0, 1, 1.0),
@@ -800,44 +814,64 @@ def A_star_algo(occupancy_grid, brushfire_weights, safety_weight, start_pos, end
         (-1, -1, sqrt2),
     )
 
-    if (sr, sc) == (er, ec):
-        return [(sr, sc)]
-
     while open_list:
         _, r, c = heapq.heappop(open_list)
+
         if closed[r, c]:
             continue
         closed[r, c] = True
 
         if (r, c) == (er, ec):
+            # Reconstruct path
             path = []
             cr, cc = r, c
             while True:
                 path.append((int(cr), int(cc)))
                 pr, pc = parent_r[cr, cc], parent_c[cr, cc]
+
                 if pr == cr and pc == cc:
                     break
                 if pr < 0 or pc < 0:
-                    return None
+                    return None  # safety fallback
+
                 cr, cc = pr, pc
-            path.reverse()
-            return path
+
+            return path[::-1]
 
         grc = g[r, c]
+
         for dr, dc, move_cost in directions:
             nr, nc = r + dr, c + dc
+
             if not (0 <= nr < ROW and 0 <= nc < COL):
                 continue
             if occ_mask[nr, nc] or closed[nr, nc]:
                 continue
 
-            g_new = grc + move_cost + safety_penalty[nr, nc]
+            turn_penalty = 0.0
+            pr, pc = parent_r[r, c], parent_c[r, c]
+
+            if not (pr == r and pc == c):
+                prev_dir = (r - pr, c - pc)
+                new_dir  = (dr, dc)
+                if prev_dir != new_dir:
+                    turn_penalty = turn_weight
+
+            g_new = (
+                grc
+                + move_cost
+                + safety_penalty[nr, nc]
+                + turn_penalty
+            )
+
             if g_new < g[nr, nc]:
                 g[nr, nc] = g_new
                 parent_r[nr, nc] = r
                 parent_c[nr, nc] = c
+
                 f_new = g_new + h(nr, nc)
                 f[nr, nc] = f_new
+
                 heapq.heappush(open_list, (f_new, nr, nc))
 
     return None
@@ -847,7 +881,7 @@ def A_star_algo(occupancy_grid, brushfire_weights, safety_weight, start_pos, end
 # Multi-segment path planning
 # ============================================================================
 
-def plan_full_path(occupancy_grid, brushfire_grid, safety_weight,
+def plan_full_path(occupancy_grid, brushfire_grid, safety_weight, turn_weight,
                    start_pos, waypoints):
     '''
     Runs A* on each consecutive pair of positions and concatenates the
@@ -890,7 +924,8 @@ def plan_full_path(occupancy_grid, brushfire_grid, safety_weight,
 
         segment = A_star_algo(occupancy_grid, brushfire_grid,
                       safety_weight, seg_start, seg_end,
-                      safety_penalty=safety_penalty)
+                      safety_penalty=safety_penalty,
+                      turn_weight=turn_weight)
 
         if segment is None:
             print(f"  No path found for {label}. "
@@ -1104,10 +1139,15 @@ if __name__ == "__main__":
     # Higher = more cautious
     SAFETY_WEIGHT = 30
 
+    # ── A* turn weight ────────────────────────────────────────────────────────
+    # Penalty for changing direction
+    # Higher = smoother, less zig-zag paths
+    TURN_WEIGHT = 5.0
+
     # ── Raceline mode ─────────────────────────────────────────────────────────
     # "astar"         : auto-plan using checkpoints + A* + smoothing
     # "manual_spline" : manually draw control points and fit a closed spline
-    RACELINE_MODE = "manual_spline"
+    RACELINE_MODE = "astar"
 
     # ── Manual spline settings ────────────────────────────────────────────────
     # Used only when RACELINE_MODE == "manual_spline"
@@ -1177,7 +1217,7 @@ if __name__ == "__main__":
         # ── A* ────────────────────────────────────────────────────────────────
         print("\nRunning A* across all segments...")
         raw_raceline = plan_full_path(occupancy_grid, brushfire_grid,
-                                      SAFETY_WEIGHT, start_pos, waypoints)
+                                      SAFETY_WEIGHT, TURN_WEIGHT, start_pos, waypoints)
 
         if raw_raceline is None:
             print("\nNo complete path found. Try repositioning a checkpoint near a narrow gap.")
