@@ -12,6 +12,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(ackermann_msgs REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 
 # Qt auto-processing
@@ -43,7 +44,7 @@ add_executable(main_gui src/gui.cpp
 )
 
 # ROS2 dependencies
-ament_target_dependencies(main_gui rclcpp nav_msgs)
+ament_target_dependencies(main_gui rclcpp nav_msgs ackermann_msgs)
 
 # Qt6 linking (plain style, no PRIVATE keyword)
 target_link_libraries(main_gui Qt6::Core Qt6::Widgets)

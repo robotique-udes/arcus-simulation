@@ -8,7 +8,11 @@ QCarInfoWidget::QCarInfoWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* par
 
     this->initOdomSubscriber();
 
+    this->initDriveSubscriber();
+
     connect(this, &QCarInfoWidget::updateSpeedIU, this, &QCarInfoWidget::onUpdateSpeedUI);
+
+    connect( this, &QCarInfoWidget::updateAngleIU, this, &QCarInfoWidget::onUpdateAngleUI);
 }
 
 void QCarInfoWidget::initOdomSubscriber(void)
@@ -22,7 +26,20 @@ void QCarInfoWidget::initOdomSubscriber(void)
                                                                             this->CB_odom(msg_);
                                                                         });
 
-        _sub_angle = _node->create_subscription<nav_msgs::msg::Odometry
+                                                                    }   
+    else
+    {
+        assert(false && "Error: GUI node is null");
+    }
+}
+
+void QCarInfoWidget::initDriveSubscriber(void)
+{
+    if(_node)
+    {
+        _sub_acker = _node->create_subscription<ackermann_msgs::msg::AckermannDriveStamped>(DRIVE_TOPIC, 1, [this](ackermann_msgs::msg::AckermannDriveStamped msg_){
+            this->CB_driver(msg_);
+        });
     }
     else
     {
@@ -30,21 +47,38 @@ void QCarInfoWidget::initOdomSubscriber(void)
     }
 }
 
-void QSpeedWidget::CB_odom(nav_msgs::msg::Odometry& msg_)
+void QCarInfoWidget::CB_odom(nav_msgs::msg::Odometry& msg_)
 {
     float speed = msg_.twist.twist.linear.x;
 
     emit this->updateSpeedIU(speed);
 }
 
-void QSpeedWidget::DisplayLCDUI(float speed_)
+void QCarInfoWidget::CB_driver(ackermann_msgs::msg::AckermannDriveStamped& msg_)
+{
+    float angle = msg_.drive.steering_angle;
+
+    emit this->updateAngleIU(angle);
+}
+
+void QCarInfoWidget::DisplayLCDSPEEDUI(float speed_)
 {
     _ui.lcdSpeed->display(QString::number(speed_,'f',2));
 }
 
-void QSpeedWidget::onUpdateSpeedUI(float speed_)
+void QCarInfoWidget::DisplayLCDANGLEUI(float angle_)
 {
-    this->DisplayLCDUI(speed_);
+    _ui.lcdAngle->display(QString::number(angle_,'f',2));
+}
+
+void QCarInfoWidget::onUpdateSpeedUI(float speed_)  
+{
+    this->DisplayLCDSPEEDUI(speed_);
+}
+
+void QCarInfoWidget::onUpdateAngleUI(float angle_)  
+{
+    this->DisplayLCDANGLEUI(angle_);
 }
 
 

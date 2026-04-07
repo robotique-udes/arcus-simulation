@@ -11,6 +11,7 @@
 #include "QWidget/QExampleWidget/QSpeedWidget.hpp"
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
+#include "QWidget/QCarInfoWidget.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class MainWindow : public QMainWindow
@@ -36,6 +37,8 @@ class MainWindow : public QMainWindow
     QProcessHandler _controllerDriver;
 
     QSpeedWidget _speedWidget;
+
+    QCarInfoWidget _carInfoWidget;
 };
 
 #endif  // MAIN_WINDOWS_HPP

@@ -6,7 +6,8 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _topicSelector(this, "sensor_msgs/msg/LaserScan", "LaserScan", guiNode_),
     _visualizationProcess(this, "Visualization", VISUALIZATION_PROCESS_CMD, true),
     _controllerDriver(this, "Controller Driver", CONTROLLER_DRIVER, true),
-    _speedWidget(guiNode_, this)
+    _speedWidget(guiNode_, this),
+    _carInfoWidget(guiNode_, this)
 {
     this->setCentralWidget(&_centralWidget);
 
@@ -14,6 +15,7 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _gridLayout.addWidget(&_visualizationProcess);
     _gridLayout.addWidget(&_controllerDriver);
     _gridLayout.addWidget(&_speedWidget);
+    _gridLayout.addWidget(&_carInfoWidget);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event_)
