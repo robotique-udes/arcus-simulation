@@ -7,7 +7,7 @@ HOST="arcus-jetson.local"
 REMOTE_DIR="/home/arcus/arcus/slam_map_saver/slam_maps/"
 LOCAL_DIR="./maps"
 
-PYTHON_SCRIPT="raceLine_generator.py"
+PYTHON_SCRIPT="generate_raceline.py"
 RACELINE_FILE="./saved/waypoints.csv"
 REMOTE_RACELINE_DIR="/home/arcus/arcus/resources/waypoints"
 
