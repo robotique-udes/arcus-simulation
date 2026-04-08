@@ -5,35 +5,57 @@
 namespace Constants::Style
 {
     constexpr const char* STATUS_STYLE = R"(
+    QLineEdit[state="success"] {
+        background-color: #81c784;
+        color: black;
+        border: 1px solid #388e3c;
+        border-radius: 5px;
+        padding: 5px 10px;
+    }
+    QLineEdit[state="warning"] {
+        background-color: #ffb74d;
+        color: black;
+        border: 1px solid #e65100;
+        border-radius: 5px;
+        padding: 5px 10px;
+    }
+    QLineEdit[state="error"] {
+        background-color: #e57373;
+        color: black;
+        border: 1px solid #b71c1c;
+        border-radius: 5px;
+        padding: 5px 10px;
+    }
+    )";
 
-.success {
+    constexpr const char* STYLE_DARK_MODE = R"(
+
+QLineEdit[state="success"] {
     background-color: #81c784;
     color: black;
     border: 1px solid #388e3c;
     border-radius: 5px;
     padding: 5px 10px;
 }
-
-.warning {
+QLineEdit[state="warning"] {
     background-color: #ffb74d;
     color: black;
     border: 1px solid #e65100;
     border-radius: 5px;
     padding: 5px 10px;
 }
-
-.error {
+QLineEdit[state="error"] {
     background-color: #e57373;
     color: black;
     border: 1px solid #b71c1c;
     border-radius: 5px;
     padding: 5px 10px;
 }
-)";
 
-    constexpr const char* STYLE_DARK_MODE = R"(
 QWidget {
-     background-color: #2e2e2e;
+    background-color: #2e2e2e;
+    border: 1px solid #4b4e52;
+    border-radius: 5px;
     color: #ffffff;
 }
 

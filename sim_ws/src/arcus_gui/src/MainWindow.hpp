@@ -7,11 +7,12 @@
 #include <QCloseEvent>
 #include <QApplication>
 #include <QGridLayout>
-#include "QWidget/QExampleWidget/QExampleWidget.hpp"
-#include "QWidget/QExampleWidget/QSpeedWidget.hpp"
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
 #include "QWidget/QCarInfoWidget.hpp"
+#include "QWidget/QArcusMaster/QArcusMaster.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class MainWindow : public QMainWindow
@@ -27,18 +28,15 @@ class MainWindow : public QMainWindow
   private:
     void closeEvent(QCloseEvent* event_) override;
 
-    QWidget _centralWidget = QWidget(this);
-    QGridLayout _gridLayout = QGridLayout(&_centralWidget);
+    QWidget _centralWidget = QWidget(this); // main widget that holds all other widgets, set as central widget of QMainWindow
+    QGridLayout _gridLayout = QGridLayout(&_centralWidget); // grid layout to hold child widgets
 
-    QExampleWidget _exampleWidget;
-    QTopicSelector _topicSelector;
-
-    QProcessHandler _visualizationProcess;
-    QProcessHandler _controllerDriver;
-
-    QSpeedWidget _speedWidget;
-
+    QArcusMaster _arcusMasterWidget;
     QCarInfoWidget _carInfoWidget;
+    QWidget _exampleWidget2;
+    QWidget _exampleWidget3;
+    QWidget _exampleWidget4;
+    QWidget _exampleWidget5;
 };
 
 #endif  // MAIN_WINDOWS_HPP
