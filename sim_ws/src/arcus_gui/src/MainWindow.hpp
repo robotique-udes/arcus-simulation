@@ -11,6 +11,7 @@
 #include <QHBoxLayout>
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
+#include "QWidget/QArcusMaster/QArcusMaster.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class MainWindow : public QMainWindow
@@ -29,15 +30,14 @@ class MainWindow : public QMainWindow
     QWidget _centralWidget = QWidget(this); // main widget that holds all other widgets, set as central widget of QMainWindow
     QGridLayout _gridLayout = QGridLayout(&_centralWidget); // grid layout to hold child widgets
 
-
-    QWidget _exampleWidget0;
+    QArcusMaster _arcusMasterWidget;
     QWidget _exampleWidget1;
     QWidget _exampleWidget2;
     QWidget _exampleWidget3;
     QWidget _exampleWidget4;
     QWidget _exampleWidget5;
 
-    QProcessHandler _visualizationProcess;
+    //QProcessHandler _visualizationProcess;
     //QProcessHandler _controllerDriver;
 
 
