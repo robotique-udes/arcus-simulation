@@ -89,3 +89,50 @@ def find_latest_map_pair(map_folder):
 
     _, yaml_name, pgm_name = max(candidates, key=lambda x: x[0])
     return yaml_name, pgm_name
+
+
+def find_latest_csv(csv_folder):
+    """Finds the most recently modified .csv file in csv_folder."""
+    if not os.path.isdir(csv_folder):
+        raise FileNotFoundError(f"CSV folder not found: {csv_folder}")
+
+    candidates = []
+    for entry in os.listdir(csv_folder):
+        if not entry.lower().endswith(".csv"):
+            continue
+        full_path = os.path.join(csv_folder, entry)
+        if os.path.isfile(full_path):
+            candidates.append((os.path.getmtime(full_path), full_path))
+
+    if not candidates:
+        raise FileNotFoundError(f"No CSV files found in '{csv_folder}'.")
+
+    _, latest_path = max(candidates, key=lambda x: x[0])
+    return latest_path
+
+
+def load_csv_xy(filepath):
+    """
+    Loads (x, y) points from a raceline CSV.
+
+    Accepts rows with at least two numeric columns, e.g. (x, y) or (x, y, speed).
+    """
+    points = []
+    with open(filepath, "r", newline="") as f:
+        reader = csv.reader(f, delimiter=",")
+        for line_idx, row in enumerate(reader, start=1):
+            if len(row) < 2:
+                continue
+            try:
+                x = float(row[0])
+                y = float(row[1])
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid numeric values in {filepath} at line {line_idx}: {row}"
+                ) from exc
+            points.append((x, y))
+
+    if len(points) < 4:
+        raise ValueError(f"Imported raceline must contain at least 4 points, got {len(points)}")
+
+    return points

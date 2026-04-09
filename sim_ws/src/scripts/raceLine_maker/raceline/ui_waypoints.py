@@ -12,7 +12,9 @@ def pick_waypoints(occupancy_grid, start_pos):
 
     Returns
     -------
-    tuple( list of (row, col), (row, col) ) | None
+    tuple( list of (row, col), (row, col) ) | dict | None
+        Returns a dict with action="import_last" when the user requests
+        importing the most recent saved raceline.
     """
     vis = build_vis(occupancy_grid)
 
@@ -35,12 +37,13 @@ def pick_waypoints(occupancy_grid, start_pos):
         "sf_marker": None,
         "sf_label": None,
         "move_mode": False,
+        "import_requested": False,
         "confirmed": False,
     }
 
     ax.set_title(
         "LEFT-CLICK to add checkpoints  |  RIGHT-CLICK to undo last  |  "
-        '"Move S/F" to relocate start/finish  |  "Confirm" when done\n'
+        '"Move S/F" to relocate start/finish  |  "Import Last Raceline" to edit saved line\n'
         "Green = start/finish  |  Yellow squares = intermediate checkpoints",
         color="white",
         fontsize=11,
@@ -67,6 +70,16 @@ def pick_waypoints(occupancy_grid, start_pos):
     )
     btn_move.label.set_color("white")
     btn_move.label.set_fontsize(10)
+
+    ax_import = plt.axes([0.43, 0.02, 0.15, 0.055])
+    btn_import = Button(
+        ax_import,
+        "Import Last",
+        color="#224222",
+        hovercolor="#2b5f2b",
+    )
+    btn_import.label.set_color("white")
+    btn_import.label.set_fontsize(10)
 
     ax_conf = plt.axes([0.60, 0.02, 0.20, 0.055])
     btn_conf = Button(ax_conf, "Confirm waypoints", color="#22224a", hovercolor="#3333aa")
@@ -259,11 +272,20 @@ def pick_waypoints(occupancy_grid, start_pos):
         state["confirmed"] = True
         plt.close(fig)
 
+    def on_import_last(_event):
+        state["move_mode"] = False
+        state["import_requested"] = True
+        plt.close(fig)
+
     fig.canvas.mpl_connect("button_press_event", on_click)
     btn_move.on_clicked(on_move_sf)
+    btn_import.on_clicked(on_import_last)
     btn_conf.on_clicked(on_confirm)
 
     plt.show()
+
+    if state["import_requested"]:
+        return {"action": "import_last", "start_pos": state["start_pos"]}
 
     if state["confirmed"] and state["waypoints"]:
         return state["waypoints"], state["start_pos"]

@@ -12,7 +12,14 @@ Workflow
 import os
 
 from raceline.grid_utils import grid_generator, grid_to_world, world_to_grid
-from raceline.map_io import find_latest_map_pair, pgm_opener, save_csv, yaml_opener
+from raceline.map_io import (
+    find_latest_csv,
+    find_latest_map_pair,
+    load_csv_xy,
+    pgm_opener,
+    save_csv,
+    yaml_opener,
+)
 from raceline.planning import brushfire_algo, plan_full_path
 from raceline.ui_raceline_editor import edit_raceline_with_drag
 from raceline_config import DEFAULT_CONFIG
@@ -78,67 +85,104 @@ def run():
             print("No checkpoints selected. Exiting.")
             return
 
-        waypoints, start_pos = result
+        if isinstance(result, dict) and result.get("action") == "import_last":
+            latest_csv = find_latest_csv(cfg.csv_folder)
+            print(f"\nImporting latest saved raceline: {latest_csv}")
+            imported_world = load_csv_xy(latest_csv)
 
-        sx, sy = grid_to_world(start_pos, origin, res, height)
-        print(
-            f"\nStart/Finish (grid): row={start_pos[0]}, col={start_pos[1]}  world=({sx:.2f} m, {sy:.2f} m)"
-        )
-        print(f"{len(waypoints)} checkpoint(s) confirmed (loop closes back to start):")
-        for i, wp in enumerate(waypoints):
-            wx, wy = grid_to_world(wp, origin, res, height)
+            imported_grid = [
+                world_to_grid((x, y), origin, res, height) for x, y in imported_world
+            ]
+
+            smooth_raceline = imported_grid
+            raw_raceline = imported_grid
+            waypoints = []
+
+            if cfg.enable_drag_edit:
+                print("Opening drag editor for imported raceline...")
+                edited = edit_raceline_with_drag(
+                    occupancy_grid,
+                    smooth_raceline,
+                    handle_stride=cfg.drag_handle_stride,
+                    smoothing_factor=cfg.drag_smoothing_factor,
+                    lock_start=True,
+                    adaptive_handles=cfg.drag_adaptive_handles,
+                    curvature_handle_ratio=cfg.drag_curvature_handle_ratio,
+                    min_handle_spacing=cfg.drag_min_handle_spacing,
+                    drag_influence_radius=cfg.drag_influence_radius,
+                    drag_preview_points=cfg.drag_preview_points,
+                    final_preview_points=cfg.drag_final_preview_points,
+                    max_redraw_hz=cfg.drag_max_redraw_hz,
+                )
+                if edited is not None:
+                    smooth_raceline = edited
+                    print(f"Edited imported raceline confirmed: {len(smooth_raceline)} waypoints")
+                else:
+                    print("Drag edit cancelled. Keeping imported raceline.")
+
+            start_pos = smooth_raceline[0]
+        else:
+            waypoints, start_pos = result
+
+            sx, sy = grid_to_world(start_pos, origin, res, height)
             print(
-                f"  [checkpoint {i + 1}]  grid=({wp[0]}, {wp[1]})  world=({wx:.2f} m, {wy:.2f} m)"
+                f"\nStart/Finish (grid): row={start_pos[0]}, col={start_pos[1]}  world=({sx:.2f} m, {sy:.2f} m)"
             )
+            print(f"{len(waypoints)} checkpoint(s) confirmed (loop closes back to start):")
+            for i, wp in enumerate(waypoints):
+                wx, wy = grid_to_world(wp, origin, res, height)
+                print(
+                    f"  [checkpoint {i + 1}]  grid=({wp[0]}, {wp[1]})  world=({wx:.2f} m, {wy:.2f} m)"
+                )
 
-        print("\nRunning brushfire... (may take a moment on large maps)")
-        brushfire_grid = brushfire_algo(occupancy_grid)
+            print("\nRunning brushfire... (may take a moment on large maps)")
+            brushfire_grid = brushfire_algo(occupancy_grid)
 
-        print("\nRunning A* across all segments...")
-        raw_raceline = plan_full_path(
-            occupancy_grid,
-            brushfire_grid,
-            cfg.safety_weight,
-            cfg.turn_weight,
-            start_pos,
-            waypoints,
-        )
-
-        if raw_raceline is None:
-            print("\nNo complete path found. Try repositioning a checkpoint near a narrow gap.")
-            return
-
-        print(f"\nRaw raceline: {len(raw_raceline)} waypoints")
-
-        smooth_raceline = smooth_path(
-            raw_raceline,
-            smoothing_factor=cfg.smoothing_factor,
-            num_points=len(raw_raceline),
-            closed=True,
-        )
-        print(f"Smoothed raceline: {len(smooth_raceline)} waypoints")
-
-        if cfg.enable_drag_edit:
-            print("\nOpening drag editor for post-A* raceline tuning...")
-            edited = edit_raceline_with_drag(
+            print("\nRunning A* across all segments...")
+            raw_raceline = plan_full_path(
                 occupancy_grid,
-                smooth_raceline,
-                handle_stride=cfg.drag_handle_stride,
-                smoothing_factor=cfg.drag_smoothing_factor,
-                lock_start=True,
-                adaptive_handles=cfg.drag_adaptive_handles,
-                curvature_handle_ratio=cfg.drag_curvature_handle_ratio,
-                min_handle_spacing=cfg.drag_min_handle_spacing,
-                drag_influence_radius=cfg.drag_influence_radius,
-                drag_preview_points=cfg.drag_preview_points,
-                final_preview_points=cfg.drag_final_preview_points,
-                max_redraw_hz=cfg.drag_max_redraw_hz,
+                brushfire_grid,
+                cfg.safety_weight,
+                cfg.turn_weight,
+                start_pos,
+                waypoints,
             )
-            if edited is not None:
-                smooth_raceline = edited
-                print(f"Edited raceline confirmed: {len(smooth_raceline)} waypoints")
-            else:
-                print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
+
+            if raw_raceline is None:
+                print("\nNo complete path found. Try repositioning a checkpoint near a narrow gap.")
+                return
+
+            print(f"\nRaw raceline: {len(raw_raceline)} waypoints")
+
+            smooth_raceline = smooth_path(
+                raw_raceline,
+                smoothing_factor=cfg.smoothing_factor,
+                num_points=len(raw_raceline),
+                closed=True,
+            )
+            print(f"Smoothed raceline: {len(smooth_raceline)} waypoints")
+
+            if cfg.enable_drag_edit:
+                print("\nOpening drag editor for post-A* raceline tuning...")
+                edited = edit_raceline_with_drag(
+                    occupancy_grid,
+                    smooth_raceline,
+                    handle_stride=cfg.drag_handle_stride,
+                    smoothing_factor=cfg.drag_smoothing_factor,
+                    lock_start=True,
+                    adaptive_handles=cfg.drag_adaptive_handles,
+                    curvature_handle_ratio=cfg.drag_curvature_handle_ratio,
+                    min_handle_spacing=cfg.drag_min_handle_spacing,
+                    drag_influence_radius=cfg.drag_influence_radius,
+                    drag_preview_points=cfg.drag_preview_points,
+                    final_preview_points=cfg.drag_final_preview_points,
+                    max_redraw_hz=cfg.drag_max_redraw_hz,
+                )
+                if edited is not None:
+                    smooth_raceline = edited
+                    print(f"Edited raceline confirmed: {len(smooth_raceline)} waypoints")
+                else:
+                    print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
 
     elif cfg.raceline_mode == "manual_spline":
         print("\nOpening manual spline window.")
