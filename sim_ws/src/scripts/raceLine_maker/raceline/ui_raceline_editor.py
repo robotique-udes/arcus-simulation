@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, Slider
 import time
 
 from .constants import OCCUPIED, UNKNOWN
@@ -17,6 +17,7 @@ def edit_raceline_with_drag(
     adaptive_handles=True,
     curvature_handle_ratio=0.12,
     min_handle_spacing=8,
+    drag_influence_radius=4,
     drag_preview_points=260,
     final_preview_points=None,
     max_redraw_hz=24,
@@ -42,6 +43,9 @@ def edit_raceline_with_drag(
         Fraction of points considered as additional curvature-based handles.
     min_handle_spacing : int
         Minimum spacing (in source indices) between selected handles.
+    drag_influence_radius : int
+        Number of neighboring control points on each side that are softly
+        pulled along when a handle is dragged.
     drag_preview_points : int
         Number of preview points while dragging (low for responsiveness).
     final_preview_points : int or None
@@ -72,8 +76,8 @@ def edit_raceline_with_drag(
         spine.set_edgecolor("#333355")
 
     ax.set_title(
-        "Drag Edit Mode: LEFT-CLICK+DRAG handles  |  Confirm to accept  |  Cancel to discard\n"
-        "Green = start/finish handle (locked by default)  |  Orange = editable handles",
+        "Drag Edit Mode: LEFT-CLICK+DRAG to reshape the raceline  |  RIGHT-CLICK to undo  |  Confirm to accept  |  Cancel to discard\n"
+        "Green = start/finish point (locked by default)",
         color="white",
         fontsize=11,
         pad=12,
@@ -82,7 +86,7 @@ def edit_raceline_with_drag(
     status_text = ax.text(
         0.5,
         -0.055,
-        "Drag orange handles to reshape the raceline, then Confirm",
+        "Drag the raceline to reshape it, then right-click to undo or Confirm",
         transform=ax.transAxes,
         ha="center",
         va="top",
@@ -90,13 +94,30 @@ def edit_raceline_with_drag(
         fontsize=10,
     )
 
-    ax_conf = plt.axes([0.58, 0.02, 0.16, 0.055])
+    ax_conf = plt.axes([0.49, 0.02, 0.14, 0.055])
     btn_conf = Button(ax_conf, "Confirm edit", color="#22224a", hovercolor="#3333aa")
     btn_conf.label.set_color("white")
 
-    ax_cancel = plt.axes([0.76, 0.02, 0.14, 0.055])
+    ax_undo = plt.axes([0.65, 0.02, 0.11, 0.055])
+    btn_undo = Button(ax_undo, "Undo", color="#24354a", hovercolor="#34506e")
+    btn_undo.label.set_color("white")
+
+    ax_cancel = plt.axes([0.78, 0.02, 0.14, 0.055])
     btn_cancel = Button(ax_cancel, "Cancel", color="#3a1f1f", hovercolor="#5a2a2a")
     btn_cancel.label.set_color("white")
+
+    ax_radius = plt.axes([0.10, 0.045, 0.30, 0.03], facecolor="#1f1f38")
+    radius_slider = Slider(
+        ax_radius,
+        "Radius",
+        0,
+        30,
+        valinit=float(drag_influence_radius),
+        valstep=1,
+        color="#00d2dc",
+    )
+    radius_slider.label.set_color("white")
+    radius_slider.valtext.set_color("white")
 
     n_in = len(initial_path)
     stride = max(3, int(handle_stride))
@@ -170,13 +191,16 @@ def edit_raceline_with_drag(
 
     state = {
         "controls": controls,
+        "drag_start_controls": None,
+        "drag_start_pos": None,
         "drag_idx": None,
+        "drag_influence_radius": int(drag_influence_radius),
+        "undo_stack": [],
         "confirmed": False,
         "cancelled": False,
         "preview": None,
         "poly_artist": None,
         "sf_artist": None,
-        "handles_artist": None,
         "dragging": False,
         "last_redraw_t": 0.0,
     }
@@ -211,6 +235,69 @@ def edit_raceline_with_drag(
             closed=True,
         )
 
+    def _update_status(message, color="#69f0ae"):
+        status_text.set_text(message)
+        status_text.set_color(color)
+
+    def _undo_last_change(_event=None):
+        if state["dragging"]:
+            return
+        if not state["undo_stack"]:
+            _update_status("Nothing to undo", "#ffab00")
+            fig.canvas.draw_idle()
+            return
+
+        state["controls"] = state["undo_stack"].pop()
+        _update_status("Reverted last edit", "#69f0ae")
+        _redraw(force=True)
+
+    def _set_radius(val):
+        state["drag_influence_radius"] = int(round(val))
+        if not state["dragging"]:
+            _update_status(
+                f"Radius set to {state['drag_influence_radius']}  |  Right-click to undo",
+                "#aaaacc",
+            )
+            fig.canvas.draw_idle()
+
+    def _apply_drag_with_falloff(active_idx, target_row, target_col):
+        start_controls = state["drag_start_controls"]
+        start_row, start_col = state["drag_start_pos"]
+        delta_row = target_row - start_row
+        delta_col = target_col - start_col
+
+        radius = max(0, int(state["drag_influence_radius"]))
+        if radius == 0:
+            new_controls = list(start_controls)
+            new_controls[active_idx] = (target_row, target_col)
+            if lock_start:
+                new_controls[0] = start_controls[0]
+            state["controls"] = new_controls
+            return
+
+        sigma = max(1.0, float(radius) / 2.0)
+        n_controls = len(start_controls)
+        new_controls = []
+
+        for i, (base_row, base_col) in enumerate(start_controls):
+            dist = abs(i - active_idx)
+            dist = min(dist, n_controls - dist)
+
+            if dist > radius:
+                weight = 0.0
+            else:
+                weight = float(np.exp(-0.5 * (dist / sigma) ** 2))
+
+            if i == active_idx:
+                new_controls.append((target_row, target_col))
+            else:
+                new_controls.append((base_row + delta_row * weight, base_col + delta_col * weight))
+
+        if lock_start:
+            new_controls[0] = start_controls[0]
+
+        state["controls"] = new_controls
+
     def _redraw(force=False):
         now = time.perf_counter()
         if state["dragging"] and not force and (now - state["last_redraw_t"] < redraw_period):
@@ -220,9 +307,6 @@ def edit_raceline_with_drag(
             state["poly_artist"].remove()
         if state["sf_artist"] is not None:
             state["sf_artist"].remove()
-        if state["handles_artist"] is not None:
-            state["handles_artist"].remove()
-
         preview_n = drag_preview_points if state["dragging"] else final_preview_points
         _rebuild_preview(preview_n)
 
@@ -245,23 +329,6 @@ def edit_raceline_with_drag(
         )
         state["sf_artist"] = sf_artist
 
-        if len(controls_arr) > 1:
-            handles = controls_arr[1:]
-            handles_artist, = ax.plot(
-                handles[:, 0],
-                handles[:, 1],
-                "s",
-                color="#ffab00",
-                markersize=9,
-                markeredgewidth=1.4,
-                markeredgecolor="white",
-                zorder=6,
-                linestyle="None",
-            )
-            state["handles_artist"] = handles_artist
-
-        status_text.set_text("Drag orange handles to reshape the raceline, then Confirm")
-        status_text.set_color("#69f0ae")
         state["last_redraw_t"] = now
         fig.canvas.draw_idle()
 
@@ -278,6 +345,9 @@ def edit_raceline_with_drag(
     def on_press(event):
         if event.inaxes is not ax:
             return
+        if event.button == 3:
+            _undo_last_change()
+            return
         if event.button != 1:
             return
         if event.xdata is None or event.ydata is None:
@@ -287,9 +357,11 @@ def edit_raceline_with_drag(
         if idx is None:
             return
         state["drag_idx"] = idx
+        state["undo_stack"].append(list(state["controls"]))
+        state["drag_start_controls"] = list(state["controls"])
+        state["drag_start_pos"] = tuple(state["controls"][idx])
         state["dragging"] = True
-        status_text.set_text(f"Dragging handle {idx}")
-        status_text.set_color("#69f0ae")
+        _update_status(f"Dragging handle {idx}")
         fig.canvas.draw_idle()
 
     def on_motion(event):
@@ -307,12 +379,15 @@ def edit_raceline_with_drag(
         if not _is_valid(row_f, col_f):
             return
 
-        state["controls"][idx] = (row_f, col_f)
+        _apply_drag_with_falloff(idx, row_f, col_f)
         _redraw()
 
     def on_release(_event):
         state["drag_idx"] = None
         state["dragging"] = False
+        state["drag_start_controls"] = None
+        state["drag_start_pos"] = None
+        _update_status("Drag the raceline to reshape it, then right-click to undo or Confirm")
         _redraw(force=True)
 
     def on_confirm(_event):
@@ -328,6 +403,8 @@ def edit_raceline_with_drag(
     fig.canvas.mpl_connect("button_press_event", on_press)
     fig.canvas.mpl_connect("motion_notify_event", on_motion)
     fig.canvas.mpl_connect("button_release_event", on_release)
+    radius_slider.on_changed(_set_radius)
+    btn_undo.on_clicked(_undo_last_change)
     btn_conf.on_clicked(on_confirm)
     btn_cancel.on_clicked(on_cancel)
 

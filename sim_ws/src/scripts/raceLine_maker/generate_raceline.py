@@ -129,6 +129,7 @@ def run():
                 adaptive_handles=cfg.drag_adaptive_handles,
                 curvature_handle_ratio=cfg.drag_curvature_handle_ratio,
                 min_handle_spacing=cfg.drag_min_handle_spacing,
+                drag_influence_radius=cfg.drag_influence_radius,
                 drag_preview_points=cfg.drag_preview_points,
                 final_preview_points=cfg.drag_final_preview_points,
                 max_redraw_hz=cfg.drag_max_redraw_hz,

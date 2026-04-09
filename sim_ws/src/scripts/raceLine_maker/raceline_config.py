@@ -35,6 +35,7 @@ class RacelineConfig:
     drag_adaptive_handles: bool = True
     drag_curvature_handle_ratio: float = 0.12
     drag_min_handle_spacing: int = 8
+    drag_influence_radius: int = 15
     drag_preview_points: int = 260
     drag_final_preview_points: int = 1200
     drag_max_redraw_hz: float = 24.0
