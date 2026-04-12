@@ -40,5 +40,8 @@ class RacelineConfig:
     drag_final_preview_points: int = 1200
     drag_max_redraw_hz: float = 24.0
 
+    track_max_width: float = 50
+    vehicle_width: float = 0.2
+    kappa_bound: float = 0.1
 
 DEFAULT_CONFIG = RacelineConfig()

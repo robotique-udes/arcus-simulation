@@ -20,6 +20,14 @@ from raceline.map_io import (
     save_csv,
     yaml_opener,
 )
+from raceline.min_curvature import (
+    build_reftrack,
+    compute_normal_vectors,
+    compute_track_widths,
+    grid_path_to_world,
+    generate_spline_matrix,
+    opt_min_curv,
+)
 from raceline.planning import brushfire_algo, plan_full_path
 from raceline.ui_raceline_editor import edit_raceline_with_drag
 from raceline_config import DEFAULT_CONFIG
@@ -184,6 +192,46 @@ def run():
                 else:
                     print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
 
+        # --------------------------------------------------------------
+        # Minimum-curvature optimisation
+        # --------------------------------------------------------------
+
+        world_xy = grid_path_to_world(smooth_raceline, origin, res, height)
+        n        = world_xy.shape[0]
+        smooth_raceline_trimmed = smooth_raceline[:n]
+
+        normvectors = compute_normal_vectors(world_xy)
+
+        w_left, w_right = compute_track_widths(
+            smooth_raceline_trimmed,
+            normvectors,
+            occupancy_grid,
+            res,
+            max_width=cfg.track_max_width,
+        )
+
+        reftrack = build_reftrack(world_xy, w_left, w_right)
+
+        closed = True
+        A = generate_spline_matrix(n, closed=closed)
+
+        alpha_mincurv, curv_max = opt_min_curv(
+            reftrack=reftrack,
+            normvectors=normvectors,
+            A=A,
+            kappa_bound=cfg.kappa_bound,
+            w_veh=cfg.vehicle_width,
+            closed=closed,
+            fix_s=False,
+            fix_e=False,
+            plot_debug=True,
+        )
+
+        print(f"\nOptimisation complete. Max curvature: {curv_max:.4f} m^-1")
+
+    # ------------------------------------------------------------------
+    # Mode: manual spline
+    # ------------------------------------------------------------------
     elif cfg.raceline_mode == "manual_spline":
         print("\nOpening manual spline window.")
         print("  Left-click  : add control points around the track")
