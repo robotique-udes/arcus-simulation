@@ -11,8 +11,8 @@ Workflow
 
 import os
 
-from raceline.grid_utils import grid_generator, grid_to_world, world_to_grid
-from raceline.map_io import (
+from utils.grid_utils import grid_generator, grid_to_world, world_to_grid
+from utils.map_io import (
     find_latest_csv,
     find_latest_map_pair,
     load_csv_xy,
@@ -20,13 +20,13 @@ from raceline.map_io import (
     save_csv,
     yaml_opener,
 )
-from raceline.planning import brushfire_algo, plan_full_path
-from raceline.ui_raceline_editor import edit_raceline_with_drag
+from utils.planning import brushfire_algo, plan_full_path
+from utils.ui_raceline_editor import edit_raceline_with_drag
 from raceline_config import DEFAULT_CONFIG
-from raceline.smoothing import smooth_path
-from raceline.ui_spline import pick_spline_control_points
-from raceline.ui_waypoints import pick_waypoints
-from raceline.viz import show_grid
+from utils.smoothing import smooth_path
+from utils.ui_spline import pick_spline_control_points
+from utils.ui_waypoints import pick_waypoints
+from utils.viz import show_grid
 
 
 def run():
