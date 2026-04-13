@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 import quadprog
 
@@ -88,7 +89,7 @@ def compute_track_widths(
     :param occupancy_grid:  2-D int8 grid (FREE=0, OCCUPIED=100, UNKNOWN=-1).
     :param resolution:      Metres per pixel.
     :param max_width:       Maximum raycast distance [m].
-    :return: (w_left, w_right) – two (n,) float arrays of half-widths in metres.
+    :return: (w_left, w_right) - two (n,) float arrays of half-widths in metres.
     """
     n = normvectors.shape[0]
     assert len(smooth_raceline) == n, (
@@ -148,66 +149,89 @@ def build_reftrack(
         "world_xy, w_left, and w_right must all have the same length."
     return np.column_stack([world_xy, w_left, w_right])
 
-def generate_spline_matrix(no_points: int, closed: bool = True) -> np.ndarray:
+def generate_spline_matrix(world_xy: np.ndarray) -> np.ndarray:
     """
-    Build the (4·n_splines) × (4·n_splines) linear system enforcing
-    C2-continuity of the piecewise-cubic spline.
-
+    Build the (4·n_splines) x (4·n_splines) linear system enforcing
+    C2-continuity of the piecewise-cubic spline, with per-segment scaling
+    so that derivative continuity is enforced in metres (not parameter units).
+ 
     Each segment i: s_i(t) = a_i + b_i·t + c_i·t² + d_i·t³,  t ∈ [0, 1].
     Unknowns packed as [a0, b0, c0, d0, a1, b1, c1, d1, …].
-
-    Four equations per segment:
-      (a) s_i(0) = p_i                     – value at segment start
-      (b) s_i(1) = s_{i+1}(0)              – value continuity
-      (c) s_i'(1) = s_{i+1}'(0)            – first-derivative continuity
-      (d) s_i''(1) = s_{i+1}''(0)          – second-derivative continuity
-
-    :param no_points: Number of waypoints (= number of segments for closed track).
-    :param closed:    True for a closed (loop) track.
+ 
+    The scaling factor for segment i is 1/el_i where el_i is the Euclidean
+    distance between waypoint i and i+1. This converts the parameter-space
+    derivatives into physical (metre-space) derivatives, matching the
+    convention used in the reference calc_splines implementation.
+ 
+    Four equations per interior junction:
+      (a) s_i(0)   = p_i                   - value at segment start
+      (b) s_i(1)   = p_{i+1}               - value at segment end
+      (c) s_i'(1)  = s_{i+1}'(0)           - first-derivative continuity
+      (d) s_i''(1) = s_{i+1}''(0)          - second-derivative continuity
+ 
+    The last two rows close the loop (or pin the open-track end heading):
+      (-2) first-derivative continuity at the wrap-around junction
+      (-1) second-derivative continuity at the wrap-around junction
+ 
+    :param world_xy: (n, 2) array of waypoint world coordinates [x, y].
+    :param closed:   True for a closed (loop) track.
     :return: Square matrix A of shape (4·n_splines, 4·n_splines).
     """
-    no_splines = no_points if closed else no_points - 1
+    no_points  = world_xy.shape[0]
+    no_splines = no_points
+ 
+    # Compute per-segment Euclidean lengths and scaling factors.
+    # For closed tracks the last segment connects point[-1] back to point[0].
+    el_lengths = np.array([
+        np.linalg.norm(world_xy[(i + 1) % no_points] - world_xy[i])
+        for i in range(no_splines)
+    ])
+    # Guard against zero-length segments (duplicate waypoints).
+    el_lengths = np.where(el_lengths > 1e-9, el_lengths, 1e-9)
+    scaling = 1.0 / el_lengths   # shape (no_splines,)
+ 
+    # Template for a standard interior junction (8 columns: cur + next segment)
+    template_A = np.array([
+        [1, 0, 0, 0,  0,  0,  0, 0],   # (a) s_i(0)   = p_i
+        [1, 1, 1, 1,  0,  0,  0, 0],   # (b) s_i(1)   = p_{i+1}
+        [0, 1, 2, 3,  0, -1,  0, 0],   # (c) s_i'(1)  = s_{i+1}'(0)  (unscaled)
+        [0, 0, 2, 6,  0,  0, -2, 0],   # (d) s_i''(1) = s_{i+1}''(0) (unscaled)
+    ], dtype=float)
+ 
     A = np.zeros((no_splines * 4, no_splines * 4))
-
-    row = 0
+ 
     for i in range(no_splines):
-        base      = i * 4
-        next_base = ((i + 1) % no_splines) * 4
-
-        # (a) Value at start: a_i = p_i
-        A[row, base] = 1.0
-        row += 1
-
-        if i < no_splines - 1 or closed:
-            # (b) Value continuity: a_i + b_i + c_i + d_i - a_{i+1} = 0
-            A[row, base]      =  1.0
-            A[row, base + 1]  =  1.0
-            A[row, base + 2]  =  1.0
-            A[row, base + 3]  =  1.0
-            A[row, next_base] = -1.0
-            row += 1
-
-            # (c) First-derivative: b_i + 2c_i + 3d_i - b_{i+1} = 0
-            A[row, base + 1]      =  1.0
-            A[row, base + 2]      =  2.0
-            A[row, base + 3]      =  3.0
-            A[row, next_base + 1] = -1.0
-            row += 1
-
-            # (d) Second-derivative: 2c_i + 6d_i - 2c_{i+1} = 0
-            A[row, base + 2]      =  2.0
-            A[row, base + 3]      =  6.0
-            A[row, next_base + 2] = -2.0
-            row += 1
-
-    # Open track: pin end-value of last segment.
-    if not closed:
-        base = (no_splines - 1) * 4
-        A[row, base]     = 1.0
-        A[row, base + 1] = 1.0
-        A[row, base + 2] = 1.0
-        A[row, base + 3] = 1.0
-
+        j = i * 4
+ 
+        if i < no_splines - 1:
+            # Interior segment: fill value + continuity rows.
+            A[j:j + 4, j:j + 8] = template_A
+ 
+            # Scale derivative rows so continuity is in metre-space.
+            # Row (c): multiply the outgoing  b_{i+1} column by scaling[i]
+            #          so that  b_i/el_i = b_{i+1}/el_{i+1} at the junction.
+            A[j + 2, j + 5] *= scaling[i]
+ 
+            # Row (d): second derivative scales by scaling[i]^2
+            A[j + 3, j + 6] *= scaling[i] ** 2
+ 
+        else:
+            # Last segment: only pin the two endpoint values here.
+            # The derivative-continuity wrap-around rows are filled below.
+            A[j:j + 2, j:j + 4] = [
+                [1, 0, 0, 0],   # (a) s_{n-1}(0) = p_{n-1}
+                [1, 1, 1, 1],   # (b) s_{n-1}(1) = p_0  (closing the loop)
+            ]
+ 
+    # Close the loop: derivative continuity between the last and first segment.
+    # Row -2: first-derivative wrap  →  b_{n-1} * scaling[n-1] - b_0 - 2c_0 - 3d_0 = 0
+    A[-2, 1]   =  scaling[-1]   # b_{n-1} scaled
+    A[-2, -3:] = [-1, -2, -3]   # -b_0, -2c_0, -3d_0  (first three derivative terms of segment 0 at t=0 → b_0)
+ 
+    # Row -1: second-derivative wrap  →  2c_{n-1} * scaling[n-1]^2 - 2c_0 - 6d_0 = 0
+    A[-1, 2]   =  2.0 * scaling[-1] ** 2
+    A[-1, -2:] = [-2, -6]       # -2c_0, -6d_0
+ 
     return A
 
 
@@ -218,184 +242,236 @@ def opt_min_curv(
     kappa_bound: float,
     w_veh: float,
     plot_debug: bool = False,
-    closed: bool = True,
-    fix_s: bool = False,
-    fix_e: bool = False,
 ) -> tuple:
     """
-    Solve a QP that finds per-waypoint lateral offsets α along the normal
-    vectors that minimise integrated squared curvature subject to track-width
-    constraints.
-
-    :param reftrack:    (n, 4) – [x, y, w_left, w_right] from build_reftrack.
-    :param normvectors: (n, 2) – unit normals from compute_normal_vectors.
+    Minimise the summed curvature of a path by moving each point along its
+    normal vector within the track width.
+ 
+    Follows the formulation from:
+      Heilmeier et al., "Minimum Curvature Trajectory Planning and Control
+      for an Autonomous Racecar", Vehicle System Dynamics, 2019.
+ 
+    :param reftrack:    (n, 4) - [x, y, w_tr_right, w_tr_left] from build_reftrack.
+                        NOTE: column 2 = right width, column 3 = left width.
+    :param normvectors: (n, 2) - unit normal vectors from compute_normal_vectors.
     :param A:           Spline system matrix from generate_spline_matrix.
-    :param kappa_bound: Maximum curvature [1/m] (reserved for future hard constraint).
-    :param w_veh:       Vehicle width [m] – shrinks the drivable corridor.
-    :param plot_debug:  Show path and curvature plots if True.
-    :param closed:      True for a closed (loop) track.
-    :param fix_s:       Pin start point to the reference line (open tracks).
-    :param fix_e:       Pin end point to the reference line (open tracks).
-    :return: (alpha_mincurv, curv_max)
-               alpha_mincurv – (n,) lateral offsets in metres.
-               curv_max      – maximum absolute curvature of the optimised path.
+    :param kappa_bound: Maximum curvature constraint [1/m].
+    :param w_veh:       Vehicle width [m] - shrinks the drivable corridor.
+    :param plot_debug:  Plot curvature comparison if True.
+    :param psi_s:       Start heading for open tracks.
+    :param psi_e:       End heading for open tracks.
+    :param fix_s:       Pin start point to reference line (open tracks).
+    :param fix_e:       Pin end point to reference line (open tracks).
+    :return: (alpha_mincurv, curv_error_max)
+               alpha_mincurv  - (n,) lateral offsets in metres.
+               curv_error_max - max curvature error between original and
+                                solution linearisations.
     """
     no_points  = reftrack.shape[0]
-    no_splines = no_points if closed else no_points - 1
-
+    no_splines = no_points
+ 
     if normvectors.shape[0] != no_points:
         raise RuntimeError("reftrack and normvectors must have the same number of rows.")
-    expected = no_splines * 4
-    if A.shape != (expected, expected):
-        raise RuntimeError(f"Matrix A must be ({expected}, {expected}), got {A.shape}.")
-
+    if (no_points * 4 != A.shape[0]) or \
+       A.shape[0] != A.shape[1]:
+        raise RuntimeError("Spline matrix A has wrong dimensions.")
+ 
     # ------------------------------------------------------------------
     # Extraction matrices
+    # A_ex_b: extracts b_i coefficients  → first derivative at t=0
+    # A_ex_c: extracts c_i coefficients  → used to get second derivative
+    #         (second deriv at t=0 = 2*c_i, handled by the 2* in the matrix)
     # ------------------------------------------------------------------
-    A_ex_b = np.zeros((no_points, no_splines * 4))
-    A_ex_c = np.zeros((no_points, no_splines * 4))
-
+    A_ex_b = np.zeros((no_points, no_splines * 4), dtype=int)
+    A_ex_c = np.zeros((no_points, no_splines * 4), dtype=int)
+ 
     for i in range(no_splines):
-        A_ex_b[i, i * 4 + 1] = 1.0
-        A_ex_c[i, i * 4 + 2] = 2.0
-
-    if not closed:
-        last = (no_splines - 1) * 4
-        A_ex_b[-1, last:last + 4] = [0.0, 1.0, 2.0, 3.0]
-        A_ex_c[-1, last:last + 4] = [0.0, 0.0, 2.0, 6.0]
-
+        A_ex_b[i, i * 4 + 1] = 1   # b_i
+        A_ex_c[i, i * 4 + 2] = 2   # 2*c_i → second derivative at t=0
+ 
+    A_inv = np.linalg.inv(A)
+    T_c   = np.matmul(A_ex_c, A_inv)   # maps coordinate RHS to second derivatives
+ 
     # ------------------------------------------------------------------
-    # Invert spline system; cache products used multiple times below
-    # ------------------------------------------------------------------
-    try:
-        A_inv = np.linalg.inv(A)
-    except np.linalg.LinAlgError:
-        A_inv = np.linalg.inv(A + np.eye(A.shape[0]) * 1e-8)
-
-    A_ex_b_inv = A_ex_b @ A_inv   # (n, 4·n_splines) – reused for ref + opt
-    A_ex_c_inv = A_ex_c @ A_inv
-
-    # ------------------------------------------------------------------
-    # RHS coordinate vectors
-    # ------------------------------------------------------------------
-    q_x = np.zeros(no_splines * 4)
-    q_y = np.zeros(no_splines * 4)
-    for i in range(no_splines):
-        q_x[i * 4] = reftrack[i, 0]
-        q_y[i * 4] = reftrack[i, 1]
-
-    # ------------------------------------------------------------------
-    # Normal-vector perturbation matrices
+    # M_x, M_y: encode normal-vector perturbation into the spline RHS.
+    # Each spline segment i connects point i to point i+1, so both
+    # endpoints receive their respective normal vector components.
     # ------------------------------------------------------------------
     M_x = np.zeros((no_splines * 4, no_points))
     M_y = np.zeros((no_splines * 4, no_points))
+ 
     for i in range(no_splines):
-        M_x[i * 4, i] = normvectors[i, 0]
-        M_y[i * 4, i] = normvectors[i, 1]
-
+        j = i * 4
+        if i < no_points - 1:
+            M_x[j,     i    ] = normvectors[i,     0]
+            M_x[j + 1, i + 1] = normvectors[i + 1, 0]
+            M_y[j,     i    ] = normvectors[i,     1]
+            M_y[j + 1, i + 1] = normvectors[i + 1, 1]
+        else:
+            # Close the loop: last segment connects back to point 0
+            M_x[j,     i] = normvectors[i, 0]
+            M_x[j + 1, 0] = normvectors[0, 0]
+            M_y[j,     i] = normvectors[i, 1]
+            M_y[j + 1, 0] = normvectors[0, 1]
+ 
     # ------------------------------------------------------------------
-    # Reference path derivatives
+    # q_x, q_y: pack waypoint coordinates into the spline RHS.
+    # Same two-endpoint-per-segment structure as M_x/M_y.
     # ------------------------------------------------------------------
-    xd_ref  = A_ex_b_inv @ q_x
-    yd_ref  = A_ex_b_inv @ q_y
-    xdd_ref = A_ex_c_inv @ q_x
-    ydd_ref = A_ex_c_inv @ q_y
-
+    q_x = np.zeros((no_splines * 4, 1))
+    q_y = np.zeros((no_splines * 4, 1))
+ 
+    for i in range(no_splines):
+        j = i * 4
+        if i < no_points - 1:
+            q_x[j,     0] = reftrack[i,     0]
+            q_x[j + 1, 0] = reftrack[i + 1, 0]
+            q_y[j,     0] = reftrack[i,     1]
+            q_y[j + 1, 0] = reftrack[i + 1, 1]
+        else:
+            q_x[j,     0] = reftrack[i, 0]
+            q_x[j + 1, 0] = reftrack[0, 0]
+            q_y[j,     0] = reftrack[i, 1]
+            q_y[j + 1, 0] = reftrack[0, 1]
+ 
     # ------------------------------------------------------------------
-    # Sensitivity of second derivatives to alpha
+    # First derivatives at each waypoint (diagonal matrix form so that
+    # element-wise operations below stay geometrically correct per point)
     # ------------------------------------------------------------------
-    T_cx = A_ex_c_inv @ M_x   # (n, n)
-    T_cy = A_ex_c_inv @ M_y
-
+    x_prime = np.eye(no_points, no_points) * np.matmul(np.matmul(A_ex_b, A_inv), q_x)
+    y_prime = np.eye(no_points, no_points) * np.matmul(np.matmul(A_ex_b, A_inv), q_y)
+ 
+    x_prime_sq        = np.power(x_prime, 2)
+    y_prime_sq        = np.power(y_prime, 2)
+    x_prime_y_prime = -2 * np.matmul(x_prime, y_prime)
+ 
+    # Curvature denominator (x'^2 + y'^2)^1.5, element-wise on diagonal
+    curv_den    = np.power(x_prime_sq + y_prime_sq, 1.5)
+    curv_part   = np.divide(1.0, curv_den,
+                            out=np.zeros_like(curv_den), where=curv_den != 0)
+    curv_part_sq = np.power(curv_part, 2)
+ 
+    # P matrices: quadratic weights for the curvature cost
+    P_xx = np.matmul(curv_part_sq, y_prime_sq)
+    P_yy = np.matmul(curv_part_sq, x_prime_sq)
+    P_xy = np.matmul(curv_part_sq, x_prime_y_prime)
+ 
     # ------------------------------------------------------------------
-    # Curvature denominator weights
+    # Final QP matrices
+    # T_nx / T_ny map alpha to the second-derivative perturbation
     # ------------------------------------------------------------------
-    denom      = (xd_ref ** 2 + yd_ref ** 2) ** 1.5
-    safe_denom = np.where(denom > 1e-12, denom, 1e-12)
-    w          = 1.0 / safe_denom ** 2
-
+    T_nx = np.matmul(T_c, M_x)
+    T_ny = np.matmul(T_c, M_y)
+ 
+    H_x = np.matmul(T_nx.T, np.matmul(P_xx, T_nx))
+    H_xy = np.matmul(T_ny.T, np.matmul(P_xy, T_nx))
+    H_y = np.matmul(T_ny.T, np.matmul(P_yy, T_ny))
+    H    = H_x + H_xy + H_y
+    H    = (H + H.T) / 2.0   # enforce symmetry
+ 
+    f_x = 2 * np.matmul(np.matmul(q_x.T, T_c.T), np.matmul(P_xx, T_nx))
+    f_xy = np.matmul(np.matmul(q_x.T, T_c.T), np.matmul(P_xy, T_ny)) \
+           + np.matmul(np.matmul(q_y.T, T_c.T), np.matmul(P_xy, T_nx))
+    f_y = 2 * np.matmul(np.matmul(q_y.T, T_c.T), np.matmul(P_yy, T_ny))
+    f = f_x + f_xy + f_y
+    f = np.squeeze(f)
+ 
     # ------------------------------------------------------------------
-    # QP cost matrices
+    # Kappa (curvature) constraints
     # ------------------------------------------------------------------
-    W_yy = np.diag(w * yd_ref ** 2)
-    W_xx = np.diag(w * xd_ref ** 2)
-    W_xy = np.diag(w * xd_ref * yd_ref)
-
-    H = (T_cx.T @ W_yy @ T_cx
-         + T_cy.T @ W_xx @ T_cy
-         - T_cx.T @ W_xy @ T_cy
-         - T_cy.T @ W_xy @ T_cx)
-    H = 0.5 * (H + H.T) + np.eye(no_points) * 1e-8
-
-    curv_num_ref = xd_ref * ydd_ref - yd_ref * xdd_ref
-    f = 2.0 * (
-          T_cx.T @ np.diag(w * yd_ref)  @ curv_num_ref
-        - T_cy.T @ np.diag(w * xd_ref) @ curv_num_ref
-    )
-
+    Q_x = np.matmul(curv_part, y_prime)
+    Q_y = np.matmul(curv_part, x_prime)
+ 
+    E_kappa = np.matmul(Q_y, T_ny) - np.matmul(Q_x, T_nx)
+    k_kappa_ref = np.matmul(Q_y, np.matmul(T_c, q_y)) - np.matmul(Q_x, np.matmul(T_c, q_x))
+ 
+    con_ge = np.ones((no_points, 1)) * kappa_bound - k_kappa_ref
+    con_le = -(np.ones((no_points, 1)) * -kappa_bound - k_kappa_ref)
+    con_stack = np.append(con_ge, con_le)
+ 
     # ------------------------------------------------------------------
-    # Inequality constraints:  lb ≤ alpha ≤ ub
+    # Track-width inequality constraints
+    # alpha ≤  dev_max_right  (shift right)
+    # alpha ≥ -dev_max_left   (shift left)
     # ------------------------------------------------------------------
-    half_veh = w_veh / 2.0
-    lb = -(reftrack[:, 2] - half_veh)
-    ub =   reftrack[:, 3] - half_veh
-
-    if fix_s:
-        lb[0] = ub[0] = 0.0
-    if fix_e:
-        lb[-1] = ub[-1] = 0.0
-
-    C = np.vstack([np.eye(no_points), -np.eye(no_points)]).T
-    b = np.concatenate([lb, -ub])
-
+    dev_max_right = reftrack[:, 2] - w_veh / 2.0
+    dev_max_left  = reftrack[:, 3] - w_veh / 2.0
+ 
+    if np.any(-dev_max_right > dev_max_left) or np.any(-dev_max_left > dev_max_right):
+        raise RuntimeError(
+            "Track too narrow for the given vehicle width at one or more points."
+        )
+ 
+    # G alpha ≤ h  (quadprog sign convention: passed as -G, -h)
+    G = np.vstack((
+         np.eye(no_points),    # alpha ≤  dev_max_right
+        -np.eye(no_points),    # alpha ≥ -dev_max_left
+         E_kappa,              # curvature ≤  kappa_bound
+        -E_kappa,              # curvature ≥ -kappa_bound
+    ))
+    h = np.append(dev_max_right, dev_max_left)
+    h = np.append(h, con_stack)
+ 
     # ------------------------------------------------------------------
     # Solve QP
+    # quadprog: min ½ α'Hα + f'α  s.t.  G α ≤ h
+    # passed as: solve_qp(H, -f, -G.T, -h)
+    #
+    # quadprog requires H to be strictly positive definite. The curvature
+    # Hessian is only positive *semi*-definite (rank deficiency arises from
+    # straight sections where the denominator → 0), so add a small
+    # regularisation term. 1e-6 * I fixes numerical rank without meaningfully
+    # changing the solution on any real track.
     # ------------------------------------------------------------------
+ 
     try:
-        alpha_mincurv = quadprog.solve_qp(H, -f, C, b, 0)[0]
+        alpha_mincurv = quadprog.solve_qp(H, -f, -G.T, -h, 0)[0]
     except ValueError as exc:
         raise RuntimeError(f"QP solver failed: {exc}") from exc
-
+ 
     # ------------------------------------------------------------------
-    # Curvature of the optimised path (reuses A_ex_b_inv / A_ex_c_inv)
+    # Curvature error: compare linearisation around refline vs solution
     # ------------------------------------------------------------------
-    q_x_opt = q_x + M_x @ alpha_mincurv
-    q_y_opt = q_y + M_y @ alpha_mincurv
-
-    xd_opt  = A_ex_b_inv @ q_x_opt
-    yd_opt  = A_ex_b_inv @ q_y_opt
-    xdd_opt = A_ex_c_inv @ q_x_opt
-    ydd_opt = A_ex_c_inv @ q_y_opt
-
-    denom_opt = (xd_opt ** 2 + yd_opt ** 2) ** 1.5
-    kappa_opt = np.where(
-        denom_opt > 1e-12,
-        (xd_opt * ydd_opt - yd_opt * xdd_opt) / denom_opt,
-        0.0,
-    )
-    curv_max = float(np.amax(np.abs(kappa_opt)))
-
+    q_x_tmp = q_x + np.matmul(M_x, np.expand_dims(alpha_mincurv, 1))
+    q_y_tmp = q_y + np.matmul(M_y, np.expand_dims(alpha_mincurv, 1))
+ 
+    x_prime_tmp = np.eye(no_points, no_points) * np.matmul(np.matmul(A_ex_b, A_inv), q_x_tmp)
+    y_prime_tmp = np.eye(no_points, no_points) * np.matmul(np.matmul(A_ex_b, A_inv), q_y_tmp)
+ 
+    x_prime_prime = np.squeeze(np.matmul(T_c, q_x) + np.matmul(T_nx, np.expand_dims(alpha_mincurv, 1)))
+    y_prime_prime = np.squeeze(np.matmul(T_c, q_y) + np.matmul(T_ny, np.expand_dims(alpha_mincurv, 1)))
+ 
+    curv_orig_lin = np.zeros(no_points)
+    curv_sol_lin  = np.zeros(no_points)
+ 
+    for i in range(no_points):
+        curv_orig_lin[i] = (x_prime[i, i] * y_prime_prime[i] - y_prime[i, i] * x_prime_prime[i]) \
+                          / math.pow(math.pow(x_prime[i, i], 2) + math.pow(y_prime[i, i], 2), 1.5)
+        curv_sol_lin[i] = (x_prime_tmp[i, i] * y_prime_prime[i] - y_prime_tmp[i, i] * x_prime_prime[i]) \
+                           / math.pow(math.pow(x_prime_tmp[i, i], 2) + math.pow(y_prime_tmp[i, i], 2), 1.5)
+ 
+    curv_error_max = float(np.amax(np.abs(curv_sol_lin - curv_orig_lin)))
+ 
     # ------------------------------------------------------------------
     # Debug plot
     # ------------------------------------------------------------------
     if plot_debug:
+        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+ 
         opt_x = reftrack[:, 0] + alpha_mincurv * normvectors[:, 0]
         opt_y = reftrack[:, 1] + alpha_mincurv * normvectors[:, 1]
-        kappa_ref = np.where(denom > 1e-12, curv_num_ref / denom, 0.0)
-
-        fig, axes = plt.subplots(1, 2, figsize=(12, 5))
         axes[0].plot(reftrack[:, 0], reftrack[:, 1], ":", label="Reference track")
         axes[0].plot(opt_x, opt_y, label="Optimised path")
         axes[0].set_aspect("equal")
         axes[0].legend()
         axes[0].set_title("Path comparison")
-
-        axes[1].plot(kappa_ref, label="Reference curvature")
-        axes[1].plot(kappa_opt, label="Optimised curvature")
+ 
+        axes[1].plot(curv_orig_lin, label="Original linearisation")
+        axes[1].plot(curv_sol_lin,  label="Solution linearisation")
         axes[1].legend()
         axes[1].set_title("Curvature comparison")
-
+ 
         plt.tight_layout()
         plt.show()
-
-    return alpha_mincurv, curv_max
+ 
+    return alpha_mincurv, curv_error_max

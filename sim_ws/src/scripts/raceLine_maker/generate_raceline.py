@@ -212,8 +212,7 @@ def run():
 
         reftrack = build_reftrack(world_xy, w_left, w_right)
 
-        closed = True
-        A = generate_spline_matrix(n, closed=closed)
+        A = generate_spline_matrix(world_xy)
 
         alpha_mincurv, curv_max = opt_min_curv(
             reftrack=reftrack,
@@ -221,9 +220,6 @@ def run():
             A=A,
             kappa_bound=cfg.kappa_bound,
             w_veh=cfg.vehicle_width,
-            closed=closed,
-            fix_s=False,
-            fix_e=False,
             plot_debug=True,
         )
 
