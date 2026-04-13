@@ -225,6 +225,10 @@ def run():
 
         print(f"\nOptimisation complete. Max curvature: {curv_max:.4f} m^-1")
 
+        optimized_xy = world_xy + alpha_mincurv[:, None] * normvectors
+
+        smooth_world = optimized_xy.tolist()
+
     # ------------------------------------------------------------------
     # Mode: manual spline
     # ------------------------------------------------------------------

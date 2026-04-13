@@ -141,13 +141,13 @@ def build_reftrack(
     function is a simple column-stack.
 
     :param world_xy: (n, 2) from grid_path_to_world.
-    :param w_left:   (n,)   from compute_track_widths.
     :param w_right:  (n,)   from compute_track_widths.
-    :return: (n, 4) array with columns [x, y, w_left, w_right].
+    :param w_left:   (n,)   from compute_track_widths.
+    :return: (n, 4) array with columns [x, y, w_right, w_left].
     """
     assert world_xy.shape[0] == len(w_left) == len(w_right), \
         "world_xy, w_left, and w_right must all have the same length."
-    return np.column_stack([world_xy, w_left, w_right])
+    return np.column_stack([world_xy, w_right, w_left])
 
 def generate_spline_matrix(world_xy: np.ndarray) -> np.ndarray:
     """
@@ -424,6 +424,8 @@ def opt_min_curv(
     # changing the solution on any real track.
     # ------------------------------------------------------------------
  
+    H += 1e-6 * np.eye(no_points)
+
     try:
         alpha_mincurv = quadprog.solve_qp(H, -f, -G.T, -h, 0)[0]
     except ValueError as exc:
