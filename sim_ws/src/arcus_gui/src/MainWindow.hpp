@@ -11,7 +11,7 @@
 #include <QHBoxLayout>
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
-#include "QWidget/QCarInfoWidget.hpp"
+#include "QWidget/QCarInfoWidget/QCarInfoWidget.hpp"
 #include "QWidget/QArcusMaster/QArcusMaster.hpp"
 #include "rclcpp/rclcpp.hpp"
 

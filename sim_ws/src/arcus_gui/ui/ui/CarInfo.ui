@@ -140,6 +140,9 @@
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
+         <property name="digitCount">
+          <number>6</number>
+         </property>
         </widget>
        </item>
       </layout>

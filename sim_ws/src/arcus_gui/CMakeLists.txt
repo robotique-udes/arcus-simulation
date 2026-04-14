@@ -38,7 +38,7 @@ add_custom_target(run_generate_ui ALL DEPENDS ${CMAKE_BINARY_DIR}/ui_generated)
 add_executable(main_gui src/gui.cpp
     src/MainWindow.cpp
     src/QWidget/QExampleWidget/QExampleWidget.cpp
-    src/QWidget/QCarInfoWidget.cpp
+    src/QWidget/QCarInfoWidget/QCarInfoWidget.cpp
     src/QWidget/QArcusMaster/QArcusMaster.cpp
     src/QWidget/QArcusMaster/QSafetyWidget/QSafetyWidget.cpp
     src/Global/Helper/QTopicSelector/QTopicSelector.cpp
