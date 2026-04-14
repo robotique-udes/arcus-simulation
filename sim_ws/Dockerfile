@@ -22,6 +22,7 @@ RUN apt-get update --fix-missing && \
     vim \
     tmux \
     python3-pip \
+    python3-tk \
     libeigen3-dev \
     qt6-base-dev \
     qt6-base-dev-tools \
@@ -59,7 +60,7 @@ RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
 RUN echo -e "b() { \n    source /opt/ros/humble/setup.bash\n    cd /sim_ws || exit \n   colcon build "$@" --packages-ignore range_libc particle_filter --symlink-install\n    source install/local_setup.bash\n   \n}" >> ~/.bashrc
 
 # Fix for 'no module name 'numba' with docker compose 2.40
-RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow
+RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow "matplotlib<=3.8"
 
 
 # -----------------------------
