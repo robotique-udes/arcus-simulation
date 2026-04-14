@@ -4,12 +4,10 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     QMainWindow(nullptr),
     _arcusMasterWidget(guiNode_, this),
     _exampleWidget1(this),
-    _exampleWidget2(this),
+    _localNodesWidget(guiNode_, this),
     _exampleWidget3(this),
     _exampleWidget4(this),
     _exampleWidget5(this)
-    //_visualizationProcess(this, "Visualization", VISUALIZATION_PROCESS_CMD, true)
-    //_controllerDriver(this, "Controller Driver", CONTROLLER_DRIVER, true)
 {
     
     this->setCentralWidget(&_centralWidget);
@@ -17,12 +15,10 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
 
     _gridLayout.addWidget(&_arcusMasterWidget, 0, 0);
     _gridLayout.addWidget(&_exampleWidget1, 0, 1);
-    _gridLayout.addWidget(&_exampleWidget2, 0, 2);
+    _gridLayout.addWidget(&_localNodesWidget, 0, 2);
     _gridLayout.addWidget(&_exampleWidget3, 1, 0);
     _gridLayout.addWidget(&_exampleWidget4, 1, 1);
     _gridLayout.addWidget(&_exampleWidget5, 1, 2);
-    //_gridLayout.addWidget(&_visualizationProcess, 1, 2);
-    //_gridLayout.addWidget(&_controllerDriver, 2, 1);
 
     _gridLayout.setColumnStretch(0, 1);
     _gridLayout.setColumnStretch(1, 1);

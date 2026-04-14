@@ -38,6 +38,7 @@ add_executable(main_gui src/gui.cpp
     src/MainWindow.cpp
     src/QWidget/QExampleWidget/QExampleWidget.cpp
     src/QWidget/QArcusMaster/QArcusMaster.cpp
+    src/QWidget/QLocalNodes/QLocalNodes.cpp
     src/QWidget/QArcusMaster/QSafetyWidget/QSafetyWidget.cpp
     src/Global/Helper/QTopicSelector/QTopicSelector.cpp
     src/Global/Helper/QProcessHandler/QProcessHandler.cpp

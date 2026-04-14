@@ -31,7 +31,9 @@ void QProcessHandler::onPushed(bool checked)
                               << QString::fromStdString(_bashCmd));
         }
 
-        _ui.process_PB->setProperty("class", "success");
+        _ui.process_PB->setProperty("state", "success");
+        _ui.process_PB->style()->unpolish(_ui.process_PB);
+        _ui.process_PB->style()->polish(_ui.process_PB);
     }
     else
     {
@@ -48,7 +50,9 @@ void QProcessHandler::onPushed(bool checked)
             }
         }
 
-        _ui.process_PB->setProperty("class", "normal");
+        _ui.process_PB->setProperty("state", "normal");
+        _ui.process_PB->style()->unpolish(_ui.process_PB);
+        _ui.process_PB->style()->polish(_ui.process_PB);
     }
 
     _ui.process_PB->style()->unpolish(_ui.process_PB);
