@@ -6,7 +6,7 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _exampleWidget1(this),
     _localNodesWidget(guiNode_, this),
     _mapRacelineHelpers(guiNode_, this),
-    _exampleWidget4(this),
+    _purePursuitWidget(guiNode_, this),
     _exampleWidget5(this)
 {
     
@@ -17,7 +17,7 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _gridLayout.addWidget(&_exampleWidget1, 0, 1);
     _gridLayout.addWidget(&_localNodesWidget, 0, 2);
     _gridLayout.addWidget(&_mapRacelineHelpers, 1, 0);
-    _gridLayout.addWidget(&_exampleWidget4, 1, 1);
+    _gridLayout.addWidget(&_purePursuitWidget, 1, 1);
     _gridLayout.addWidget(&_exampleWidget5, 1, 2);
 
     _gridLayout.setColumnStretch(0, 1);
