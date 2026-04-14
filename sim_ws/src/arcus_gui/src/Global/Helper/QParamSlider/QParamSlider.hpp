@@ -11,7 +11,7 @@ class QParamSlider : public QWidget
     Q_OBJECT
 
   public:
-    QParamSlider(QWidget* parent_, std::shared_ptr<rclcpp::Node> node_);
+    QParamSlider(QWidget* parent_, std::shared_ptr<rclcpp::Node> node_, float min_, float max_, );
 
 
   private:
