@@ -17,6 +17,7 @@ class QCarInfoWidget : public QWidget
 
 
   public:
+
     QCarInfoWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
 
   signals:
@@ -28,6 +29,9 @@ class QCarInfoWidget : public QWidget
     void onUpdateAngleUI(float angle_);
 
   private:
+
+    float pi = 3.14159265359;
+
     void setupUI(void);
 
     void DisplayLCDSPEEDUI(float speed_);

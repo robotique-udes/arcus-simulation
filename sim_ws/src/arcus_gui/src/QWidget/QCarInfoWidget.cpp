@@ -68,7 +68,7 @@ void QCarInfoWidget::DisplayLCDSPEEDUI(float speed_)
 
 void QCarInfoWidget::DisplayLCDANGLEUI(float angle_)
 {
-    _ui.lcdAngle->display(QString::number(angle_,'f',2));
+    _ui.lcdAngle->display(QString::number((180*angle_/pi),'f',2));
 }
 
 void QCarInfoWidget::onUpdateSpeedUI(float speed_)  
