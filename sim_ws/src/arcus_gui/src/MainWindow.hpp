@@ -13,6 +13,7 @@
 
 #include "QWidget/QArcusMaster/QArcusMaster.hpp"
 #include "QWidget/QLocalNodes/QLocalNodes.hpp"
+#include "QWidget/QMapRacelineHelpers/QMapRacelineHelpers.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class MainWindow : public QMainWindow
@@ -31,7 +32,7 @@ class MainWindow : public QMainWindow
     QArcusMaster _arcusMasterWidget;
     QWidget _exampleWidget1;
     QLocalNodesWidget _localNodesWidget;
-    QWidget _exampleWidget3;
+    QMapRacelineHelpers _mapRacelineHelpers;
     QWidget _exampleWidget4;
     QWidget _exampleWidget5;
 };
