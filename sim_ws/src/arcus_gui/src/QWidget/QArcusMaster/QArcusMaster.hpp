@@ -4,6 +4,7 @@
 #include "UI_ArcusMaster.h"
 #include "QSafetyWidget/QSafetyWidget.hpp"
 #include "arcus_msgs/msg/error_code.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 #include <QtWidgets/QWidget>
@@ -14,6 +15,7 @@ class QArcusMaster : public QWidget
 
     // Error code topic also used as heartbeat
     static constexpr const char* ERROR_CODE_TOPIC = "/master_error_code";
+    static constexpr const char* HEARTBEAT_MASTER_TOPIC = "/master_heartbeat";
     static constexpr const uint32_t MASTER_NODE_TIMEOUT_MS = 100;
     static constexpr const uint32_t WATCHDOG_CHECK_MS = 33;
 
@@ -34,6 +36,7 @@ class QArcusMaster : public QWidget
     void initRosElements(void);
     
     void CB_errorCode(const arcus_msgs::msg::ErrorCode& msg_);
+    void CB_receiveHearbeat(const std_msgs::msg::Bool& msg_);
     void CB_heartbeatMaster();
 
     QSafetyWidget _safetyWidget;
@@ -41,6 +44,7 @@ class QArcusMaster : public QWidget
     bool _isConnected = false;
 
     std::shared_ptr<rclcpp::Subscription<arcus_msgs::msg::ErrorCode>> _sub_errorCode;
+    std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Bool>> _sub_heartbeatMaster;
 
     rclcpp::TimerBase::SharedPtr _watchdogMasterNode;
 

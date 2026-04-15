@@ -86,6 +86,13 @@ void QArcusMaster::initRosElements(void)
                                                                                 this->CB_errorCode(msg_);
                                                                             });
 
+            _sub_heartbeatMaster = _node->create_subscription<std_msgs::msg::Bool>(HEARTBEAT_MASTER_TOPIC,
+                                                                            1,
+                                                                            [this](const std_msgs::msg::Bool & msg_)
+                                                                            {
+                                                                                this->CB_receiveHearbeat(msg_);
+                                                                            });
+
             _watchdogMasterNode = _node->create_wall_timer(std::chrono::milliseconds(WATCHDOG_CHECK_MS),
                                                     [this](void)
                                                     {
@@ -100,8 +107,15 @@ void QArcusMaster::initRosElements(void)
 
 void QArcusMaster::CB_errorCode(const arcus_msgs::msg::ErrorCode& msg_)
 {
-    _lastMasterErrorMsg = _node->get_clock()->now();
     emit displayError(msg_.error_code);
+}
+
+void QArcusMaster::CB_receiveHearbeat(const std_msgs::msg::Bool& msg_)
+{
+    if (msg_.data)
+    {
+        _lastMasterErrorMsg = _node->get_clock()->now();
+    }
 }
 
 void QArcusMaster::CB_heartbeatMaster()
@@ -114,3 +128,4 @@ void QArcusMaster::CB_heartbeatMaster()
         emit displayConnection(_isConnected);
     }
 }
+
