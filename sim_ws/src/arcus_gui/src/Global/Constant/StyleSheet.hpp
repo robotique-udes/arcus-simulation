@@ -26,6 +26,27 @@ namespace Constants::Style
         border-radius: 5px;
         padding: 5px 10px;
     }
+    QPushButton[state="success"] {
+        background-color: #81c784;
+        color: black;
+        border: 1px solid #388e3c;
+        border-radius: 5px;
+        padding: 5px 10px;
+    }
+    QPushButton[state="warning"] {
+        background-color: #ffb74d;
+        color: black;
+        border: 1px solid #e65100;
+        border-radius: 5px;
+        padding: 5px 10px;
+    }
+    QPushButton[state="error"] {
+        background-color: #e57373;
+        color: black;
+        border: 1px solid #b71c1c;
+        border-radius: 5px;
+        padding: 5px 10px;
+    }
     )";
 
     constexpr const char* STYLE_DARK_MODE = R"(
@@ -45,6 +66,27 @@ QLineEdit[state="warning"] {
     padding: 5px 10px;
 }
 QLineEdit[state="error"] {
+    background-color: #e57373;
+    color: black;
+    border: 1px solid #b71c1c;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+QPushButton[state="success"] {
+    background-color: #81c784;
+    color: black;
+    border: 1px solid #388e3c;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+QPushButton[state="warning"] {
+    background-color: #ffb74d;
+    color: black;
+    border: 1px solid #e65100;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+QPushButton[state="error"] {
     background-color: #e57373;
     color: black;
     border: 1px solid #b71c1c;

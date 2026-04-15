@@ -42,7 +42,7 @@ class QProcessHandler : public QWidget
     std::string _name;
     std::string _bashCmd;
     bool _forwardPrint;
-
+    
     Ui::ProcessHandler _ui;
     QProcess _process;
 };
