@@ -18,8 +18,8 @@ class RacelineConfig:
     safety_weight: float = 100
     turn_weight: float = 8.0
 
-    # Raceline mode: "astar" or "manual_spline"
-    raceline_mode: str = "astar"
+    # Raceline mode: "astar", "min_curvature" or "manual_spline"
+    raceline_mode: str = "min_curvature"
 
     # Manual spline settings
     manual_spline_smoothing: float = 8.0
@@ -40,8 +40,5 @@ class RacelineConfig:
     drag_final_preview_points: int = 1200
     drag_max_redraw_hz: float = 24.0
 
-    track_max_width: float = 10.0
-    vehicle_width: float = 0.02
-    kappa_bound: float = 0.03
 
 DEFAULT_CONFIG = RacelineConfig()
