@@ -20,6 +20,11 @@ from raceline.map_io import (
     save_csv,
     yaml_opener,
 )
+from raceline.min_curvature import (
+    compute_normals,
+    order_centerline,
+    resample_path,
+)
 from raceline.ui_centerline import (
     tune_centerline,
 )
@@ -191,9 +196,20 @@ def run():
     # Mode: minimum curvature
     # ------------------------------------------------------------------
     elif cfg.raceline_mode == "min_curvature":
-        center_pts = tune_centerline(occupancy_grid)
+        center = tune_centerline(occupancy_grid)
 
-        print(f"Centerline length: {len(center_pts)}")
+        ordered = order_centerline(center)
+
+        resampled = resample_path(ordered, 500)
+
+        smooth = smooth_path(
+            resampled,
+            smoothing_factor=1000,
+            num_points=500,
+            closed=True
+        )
+
+        print(f"Centerline length: {len(center)}")
 
     # ------------------------------------------------------------------
     # Mode: manual spline

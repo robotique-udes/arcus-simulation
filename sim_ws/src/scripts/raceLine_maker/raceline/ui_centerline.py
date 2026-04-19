@@ -36,7 +36,7 @@ def tune_centerline(occupancy_grid):
 
     s_tol = Slider(ax_tol, "RIDGE_TOL", 0.0, 3.0, valinit=0.5)
     s_clear = Slider(ax_clear, "MIN_CLEAR", 0, 50, valinit=20, valstep=1)
-    s_close = Slider(ax_close, "CLOSING", 1, 7, valinit=3, valstep=0.2)
+    s_close = Slider(ax_close, "CLOSING", 1, 7, valinit=3, valstep=0.1)
 
     for s in [s_tol, s_clear, s_close]:
         s.label.set_color("white")
