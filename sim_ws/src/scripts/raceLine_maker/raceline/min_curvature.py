@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def order_centerline(points):
     pts = np.array(points)
@@ -42,3 +43,27 @@ def resample_path(path, num_points=500):
         new_pts[:, i] = np.interp(s_uniform, s, pts[:, i])
 
     return [tuple(p) for p in new_pts]
+
+def compute_normals(path):
+    pts = np.array(path, dtype=float)
+    n = len(pts)
+
+    normals = []
+
+    for i in range(n):
+        p_prev = pts[i - 1]
+        p_next = pts[(i + 1) % n]
+
+        tangent = p_next - p_prev
+        norm = np.linalg.norm(tangent)
+
+        if norm < 1e-9:
+            normals.append([0.0, 0.0])
+            continue
+
+        tangent /= norm
+
+        normal = np.array([-tangent[1], tangent[0]])
+        normals.append(normal)
+
+    return np.array(normals)

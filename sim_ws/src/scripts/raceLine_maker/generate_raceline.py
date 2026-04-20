@@ -208,8 +208,9 @@ def run():
             num_points=500,
             closed=True
         )
+        
+        normals = compute_normals(smooth)
 
-        print(f"Centerline length: {len(center)}")
 
     # ------------------------------------------------------------------
     # Mode: manual spline
