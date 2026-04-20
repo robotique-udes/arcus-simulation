@@ -22,7 +22,11 @@ from raceline.map_io import (
 )
 from raceline.min_curvature import (
     compute_normals,
+    debug_plot_normals,
+    debug_show_centerline_pipeline,
+    compute_track_widths,
     order_centerline,
+    plot_widths_simple,
     resample_path,
 )
 from raceline.ui_centerline import (
@@ -209,8 +213,33 @@ def run():
             closed=True
         )
         
+        debug_show_centerline_pipeline(
+            occupancy_grid,
+            center,
+            ordered,
+            resampled,
+            smooth
+        )
+
         normals = compute_normals(smooth)
 
+        debug_plot_normals(occupancy_grid, smooth, normals)
+
+        w_left, w_right = compute_track_widths(
+            smooth,
+            normals,
+            occupancy_grid,
+            res,
+        )
+
+        plot_widths_simple(
+            smooth,
+            normals,
+            w_left,
+            w_right,
+            occupancy_grid,
+            res,
+        )
 
     # ------------------------------------------------------------------
     # Mode: manual spline
