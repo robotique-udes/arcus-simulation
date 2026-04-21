@@ -8,7 +8,7 @@ REMOTE_DIR="/home/arcus/arcus/slam_map_saver/slam_maps/"
 
 
 echo "Copying maps folder"
-scp -r "$USER@$HOST:$REMOTE_DIR" ..
+scp -r "$USER@$HOST:$REMOTE_DIR" .
 
 if [ $? -ne 0 ]; then
     echo "Error copying directory"
