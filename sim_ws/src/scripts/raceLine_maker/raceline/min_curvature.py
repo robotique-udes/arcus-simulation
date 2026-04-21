@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 from raceline.grid_utils import grid_to_world, world_to_grid
 from raceline.constants import FREE
 import cvxpy as cp
+from scipy.spatial import KDTree
 
 def order_centerline(points):
     pts = np.array(points)
     visited = set()
 
     # Build KDTree for nearest neighbors
-    from scipy.spatial import KDTree
     tree = KDTree(pts)
 
     ordered = []
@@ -263,9 +263,6 @@ def debug_plot_normals(occupancy_grid, path, normals, stride=1, scale=10):
     plt.legend()
     plt.gca().invert_yaxis()
     plt.show()
-
-import numpy as np
-import cvxpy as cp
 
 def solve_min_curvature_raceline(
     centerline,

@@ -211,8 +211,8 @@ def run():
 
         smooth = smooth_path(
             resampled,
-            smoothing_factor=1000,
-            num_points=500,
+            smoothing_factor=cfg.min_curv_smoothing_factor,
+            num_points=len(resampled),
             closed=True
         )
 
@@ -282,8 +282,8 @@ def run():
 
         smooth_raceline = smooth_path(
             min_curv_raceline,
-            smoothing_factor=1000,
-            num_points=500,
+            smoothing_factor=cfg.min_curv_smoothing_factor,
+            num_points=len(min_curv_raceline),
             closed=True
         )
 

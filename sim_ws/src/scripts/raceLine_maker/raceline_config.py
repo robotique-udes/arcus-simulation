@@ -41,8 +41,9 @@ class RacelineConfig:
     drag_max_redraw_hz: float = 24.0
 
     # Min curvature
-    debug_min_curvature: bool = True
+    debug_min_curvature: bool = False
     vehicle_width: float = 0.3  # metres
+    min_curv_smoothing_factor: float = 1000.0
 
 
 DEFAULT_CONFIG = RacelineConfig()
