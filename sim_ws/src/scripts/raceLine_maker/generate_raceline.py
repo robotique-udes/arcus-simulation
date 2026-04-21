@@ -238,6 +238,7 @@ def run():
             normals,
             occupancy_grid,
             res,
+            vehicle_width=cfg.vehicle_width
         )
 
         if cfg.debug_min_curvature:

@@ -75,6 +75,7 @@ def compute_track_widths(
     occupancy_grid,
     resolution,
     max_width=10.0,
+    vehicle_width=0.0
 ):
     """
     Computes left/right drivable widths by raycasting along grid-space normals.
@@ -139,7 +140,12 @@ def compute_track_widths(
 
         w_left[i] = dist
 
-    return w_left, w_right
+    margin = vehicle_width
+
+    w_left_safe  = np.maximum(w_left  - margin, 0.0)
+    w_right_safe = np.maximum(w_right - margin, 0.0)
+
+    return w_left_safe, w_right_safe
 
 def debug_show_centerline_pipeline(
     occupancy_grid,
