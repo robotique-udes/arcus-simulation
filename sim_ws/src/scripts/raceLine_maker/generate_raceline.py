@@ -215,18 +215,23 @@ def run():
             num_points=500,
             closed=True
         )
+
+        raw_raceline = smooth
+        waypoints=[]
         
-        debug_show_centerline_pipeline(
-            occupancy_grid,
-            center,
-            ordered,
-            resampled,
-            smooth
-        )
+        if cfg.debug_min_curvature:
+            debug_show_centerline_pipeline(
+                occupancy_grid,
+                center,
+                ordered,
+                resampled,
+                smooth
+            )
 
         normals = compute_normals(smooth)
 
-        debug_plot_normals(occupancy_grid, smooth, normals)
+        if cfg.debug_min_curvature:
+            debug_plot_normals(occupancy_grid, smooth, normals)
 
         w_left, w_right = compute_track_widths(
             smooth,
@@ -235,17 +240,27 @@ def run():
             res,
         )
 
-        plot_widths_simple(
-            smooth,
-            normals,
-            w_left,
-            w_right,
-            occupancy_grid,
-            res,
-        )
+        if cfg.debug_min_curvature:
+            plot_widths_simple(
+                smooth,
+                normals,
+                w_left,
+                w_right,
+                occupancy_grid,
+                res,
+            )
 
-        debug_plot_solver_inputs(
-            occupancy_grid,
+        if cfg.debug_min_curvature:
+            debug_plot_solver_inputs(
+                occupancy_grid,
+                smooth,
+                normals,
+                w_left,
+                w_right,
+                res
+            )
+
+        min_curv_raceline, alpha = solve_min_curvature_raceline(
             smooth,
             normals,
             w_left,
@@ -253,22 +268,45 @@ def run():
             res
         )
 
-        raceline, alpha = solve_min_curvature_raceline(
-            smooth,
-            normals,
-            w_left,
-            w_right,
+        if cfg.debug_min_curvature:
+            plot_raceline_result(
+                occupancy_grid,
+                smooth,
+                min_curv_raceline,
+                normals,
+                w_left,
+                w_right,
+                res
+            )
+
+        smooth_raceline = smooth_path(
+            min_curv_raceline,
+            smoothing_factor=1000,
+            num_points=500,
+            closed=True
         )
 
-        plot_raceline_result(
-            occupancy_grid,
-            smooth,
-            raceline,
-            normals,
-            w_left,
-            w_right,
-            res
-        )
+        if cfg.enable_drag_edit:
+            print("\nOpening drag editor for post-min_curvature raceline tuning...")
+            edited = edit_raceline_with_drag(
+                occupancy_grid,
+                smooth_raceline,
+                handle_stride=cfg.drag_handle_stride,
+                smoothing_factor=cfg.drag_smoothing_factor,
+                lock_start=True,
+                adaptive_handles=cfg.drag_adaptive_handles,
+                curvature_handle_ratio=cfg.drag_curvature_handle_ratio,
+                min_handle_spacing=cfg.drag_min_handle_spacing,
+                drag_influence_radius=cfg.drag_influence_radius,
+                drag_preview_points=cfg.drag_preview_points,
+                final_preview_points=cfg.drag_final_preview_points,
+                max_redraw_hz=cfg.drag_max_redraw_hz,
+            )
+            if edited is not None:
+                smooth_raceline = edited
+                print(f"Edited raceline confirmed: {len(smooth_raceline)} waypoints")
+            else:
+                print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
 
     # ------------------------------------------------------------------
     # Mode: manual spline

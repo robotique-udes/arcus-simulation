@@ -40,5 +40,8 @@ class RacelineConfig:
     drag_final_preview_points: int = 1200
     drag_max_redraw_hz: float = 24.0
 
+    # Min curvature
+    debug_min_curvature: bool = False
+
 
 DEFAULT_CONFIG = RacelineConfig()

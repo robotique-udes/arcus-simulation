@@ -261,48 +261,60 @@ def debug_plot_normals(occupancy_grid, path, normals, stride=1, scale=10):
 import numpy as np
 import cvxpy as cp
 
-
 def solve_min_curvature_raceline(
     centerline,
     normals,
     w_left,
     w_right,
-    smoothness_weight=0.0,
-    bias_weight=0.0,
+    resolution=1.0,
+    smoothness_weight=1e-4,
 ):
-    p = np.array(centerline, dtype=float)
-    n = np.array(normals, dtype=float)
+    p = np.array(centerline, dtype=float)   # (N, 2) in pixels
+    n = np.array(normals, dtype=float)      # (N, 2) unit vectors in pixel frame
+
+    # Re-normalise defensively
+    norms = np.linalg.norm(n, axis=1, keepdims=True)
+    norms = np.where(norms < 1e-9, 1.0, norms)
+    n = n / norms
+
     N = len(p)
 
-    alpha = cp.Variable(N)
+    # Convert width constraints from metres → pixels so units match
+    w_left_px  = w_left  / resolution
+    w_right_px = w_right / resolution
 
-    # expand alpha to (N,1) so broadcasting is explicit
+    alpha = cp.Variable(N)
     alpha_expanded = cp.reshape(alpha, (N, 1))
 
-    # build raceline correctly: (N,2)
+    # raceline in pixel space: (N, 2)
     r = p + cp.multiply(alpha_expanded, n)
 
-    # curvature (vectorized, no loop)
-    curvature = r[2:] - 2 * r[1:-1] + r[:-2]
-    cost = 1000000 * cp.sum_squares(curvature)
+    # Wrap-around second differences (closed loop)
+    r_prev = cp.vstack([r[-1:, :], r[:-1, :]])
+    r_next = cp.vstack([r[1:,  :], r[:1,  :]])
+    curvature = r_next - 2 * r + r_prev
 
-    # regularization (prevents oscillation)
+    cost = cp.sum_squares(curvature)
     cost += smoothness_weight * cp.sum_squares(alpha[1:] - alpha[:-1])
 
-    # small bias (prevents “stuck at centerline”)
-    cost += bias_weight * cp.sum_squares(alpha)
-
     constraints = [
-        alpha >= -w_left,
-        alpha <=  w_right
+        alpha >= -w_left_px,
+        alpha <=  w_right_px,
     ]
 
     prob = cp.Problem(cp.Minimize(cost), constraints)
-    prob.solve(solver=cp.OSQP, verbose=False)
+    prob.solve(solver=cp.OSQP, verbose=False, max_iter=10000, eps_abs=1e-6, eps_rel=1e-6)
 
-    raceline = p + alpha.value[:, None] * n
+    if alpha.value is None:
+        print("[WARNING] Solver did not converge — returning centreline as fallback.")
+        return p, np.zeros(N)
 
-    return raceline, alpha.value
+    raceline_px = p + alpha.value[:, None] * n
+
+    print(f"alpha range: {alpha.value.min():.2f}…{alpha.value.max():.2f} px  "
+          f"({alpha.value.min()*resolution:.3f}…{alpha.value.max()*resolution:.3f} m)")
+
+    return raceline_px, alpha.value
 
 def plot_raceline_result(
     occupancy_grid,
