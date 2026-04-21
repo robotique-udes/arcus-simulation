@@ -23,11 +23,14 @@ from raceline.map_io import (
 from raceline.min_curvature import (
     compute_normals,
     debug_plot_normals,
+    debug_plot_solver_inputs,
     debug_show_centerline_pipeline,
     compute_track_widths,
     order_centerline,
+    plot_raceline_result,
     plot_widths_simple,
     resample_path,
+    solve_min_curvature_raceline,
 )
 from raceline.ui_centerline import (
     tune_centerline,
@@ -239,6 +242,32 @@ def run():
             w_right,
             occupancy_grid,
             res,
+        )
+
+        debug_plot_solver_inputs(
+            occupancy_grid,
+            smooth,
+            normals,
+            w_left,
+            w_right,
+            res
+        )
+
+        raceline, alpha = solve_min_curvature_raceline(
+            smooth,
+            normals,
+            w_left,
+            w_right,
+        )
+
+        plot_raceline_result(
+            occupancy_grid,
+            smooth,
+            raceline,
+            normals,
+            w_left,
+            w_right,
+            res
         )
 
     # ------------------------------------------------------------------
