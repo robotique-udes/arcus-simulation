@@ -12,15 +12,16 @@
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
 #include "QWidget/QCarInfoWidget/QCarInfoWidget.hpp"
+
 #include "QWidget/QArcusMaster/QArcusMaster.hpp"
+#include "QWidget/QLocalNodes/QLocalNodes.hpp"
+#include "QWidget/QPurePursuitWidget/QPurePursuit.hpp"
+#include "QWidget/QMapRacelineHelpers/QMapRacelineHelpers.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
-
-    static constexpr const char* VISUALIZATION_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch f1tenth_gym_ros visualize_launch.py";
-    static constexpr const char* CONTROLLER_DRIVER = "source /opt/ros/humble/setup.bash && ros2 launch drive_controller drive_controller.launch.py";
 
   public:
     explicit MainWindow(std::shared_ptr<rclcpp::Node> guiNode_);
@@ -33,9 +34,9 @@ class MainWindow : public QMainWindow
 
     QArcusMaster _arcusMasterWidget;
     QCarInfoWidget _carInfoWidget;
-    QWidget _exampleWidget2;
-    QWidget _exampleWidget3;
-    QWidget _exampleWidget4;
+    QLocalNodesWidget _localNodesWidget;
+    QMapRacelineHelpers _mapRacelineHelpers;
+    QPurePursuitWidget _purePursuitWidget;
     QWidget _exampleWidget5;
 };
 
