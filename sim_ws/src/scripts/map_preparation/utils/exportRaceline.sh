@@ -4,7 +4,7 @@
 USER="arcus"
 HOST="arcus-jetson.local"
 
-RACELINE_FILE="../saved/waypoints.csv"
+RACELINE_FILE="saved/waypoints.csv"
 REMOTE_RACELINE_DIR="/home/arcus/arcus/resources/waypoints"
 
 echo "Sending raceline back to remote..."
