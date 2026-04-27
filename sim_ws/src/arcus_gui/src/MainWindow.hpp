@@ -10,6 +10,8 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
+#include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
+#include "QWidget/QCarInfoWidget/QCarInfoWidget.hpp"
 
 #include "QWidget/QArcusMaster/QArcusMaster.hpp"
 #include "QWidget/QLocalNodes/QLocalNodes.hpp"
@@ -31,7 +33,7 @@ class MainWindow : public QMainWindow
     QGridLayout _gridLayout = QGridLayout(&_centralWidget); // grid layout to hold child widgets
 
     QArcusMaster _arcusMasterWidget;
-    QWidget _exampleWidget1;
+    QCarInfoWidget _carInfoWidget;
     QLocalNodesWidget _localNodesWidget;
     QMapRacelineHelpers _mapRacelineHelpers;
     QPurePursuitWidget _purePursuitWidget;
