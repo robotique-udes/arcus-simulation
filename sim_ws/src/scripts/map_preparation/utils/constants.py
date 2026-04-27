@@ -1,0 +1,3 @@
+UNKNOWN = -1
+FREE = 0
+OCCUPIED = 100
