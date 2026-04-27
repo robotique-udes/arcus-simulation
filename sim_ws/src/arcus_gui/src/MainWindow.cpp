@@ -3,7 +3,7 @@
 MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     QMainWindow(nullptr),
     _arcusMasterWidget(guiNode_, this),
-    _exampleWidget1(this),
+    _carInfoWidget(guiNode_, this),
     _localNodesWidget(guiNode_, this),
     _mapRacelineHelpers(guiNode_, this),
     _purePursuitWidget(guiNode_, this),
@@ -14,7 +14,7 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _centralWidget.setLayout(&_gridLayout);
 
     _gridLayout.addWidget(&_arcusMasterWidget, 0, 0);
-    _gridLayout.addWidget(&_exampleWidget1, 0, 1);
+    _gridLayout.addWidget(&_carInfoWidget, 0, 1);
     _gridLayout.addWidget(&_localNodesWidget, 0, 2);
     _gridLayout.addWidget(&_mapRacelineHelpers, 1, 0);
     _gridLayout.addWidget(&_purePursuitWidget, 1, 1);
