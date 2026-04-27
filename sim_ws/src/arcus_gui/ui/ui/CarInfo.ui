@@ -62,7 +62,7 @@
           </font>
          </property>
          <property name="text">
-          <string>X1 : </string>
+          <string>Info 1... : </string>
          </property>
         </widget>
        </item>
@@ -218,7 +218,7 @@
           </font>
          </property>
          <property name="text">
-          <string>X2 :</string>
+          <string>Info 2... :</string>
          </property>
         </widget>
        </item>
@@ -248,7 +248,7 @@
           </sizepolicy>
          </property>
          <property name="text">
-          <string>X3 :</string>
+          <string>Info 3... :</string>
          </property>
         </widget>
        </item>
