@@ -14,6 +14,7 @@ class QCarInfoWidget : public QWidget
 
     static constexpr const char* TOPIC_ODOM = "/odometry/filtered";
     static constexpr const char* DRIVE_TOPIC = "/drive";
+    static constexpr const float pi = 3.14159265359;
 
 
   public:
@@ -23,24 +24,16 @@ class QCarInfoWidget : public QWidget
   signals:
     void updateSpeedIU(float speed_);
     void updateAngleIU(float angle_);
-
+    
   private slots:
-    void onUpdateSpeedUI(float speed_);
     void onUpdateAngleUI(float angle_);
+    void onUpdateSpeedUI(float speed_);
 
   private:
 
-    float pi = 3.14159265359;
-
     void setupUI(void);
 
-    void DisplayLCDSPEEDUI(float speed_);
-
-    void DisplayLCDANGLEUI(float angle_);
-
-    void initOdomSubscriber(void);
-
-    void initDriveSubscriber(void);
+    void initSubscriber(void);
 
     void CB_odom(nav_msgs::msg::Odometry& msg_);
 
