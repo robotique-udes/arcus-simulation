@@ -16,8 +16,8 @@ class QArcusMaster : public QWidget
     // Error code topic also used as heartbeat
     static constexpr const char* ERROR_CODE_TOPIC = "/master_error_code";
     static constexpr const char* HEARTBEAT_MASTER_TOPIC = "/master_heartbeat";
-    static constexpr const uint32_t MASTER_NODE_TIMEOUT_MS = 100;
-    static constexpr const uint32_t WATCHDOG_CHECK_MS = 33;
+    static constexpr const uint32_t MASTER_NODE_TIMEOUT_MS = 200;
+    static constexpr const uint32_t WATCHDOG_CHECK_MS = 50;
 
   public:
     QArcusMaster(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
