@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True)
 class RacelineConfig:
     # Map files
-    map_folder: str = "slam_maps"
+    map_folder: str = "../raceLine_maker/slam_maps"
     forced_map_basename: str = ""
 
     # Output

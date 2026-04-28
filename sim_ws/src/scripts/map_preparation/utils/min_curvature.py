@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from raceline.grid_utils import grid_to_world, world_to_grid
-from raceline.constants import FREE
+from utils.constants import FREE
 import cvxpy as cp
 from scipy.spatial import KDTree
 

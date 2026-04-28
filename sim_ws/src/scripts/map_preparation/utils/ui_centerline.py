@@ -5,7 +5,7 @@ from scipy.ndimage import maximum_filter, binary_closing
 from skimage.morphology import skeletonize
 import cv2
 
-from raceline.planning import brushfire_algo
+from utils.planning import brushfire_algo
 from .constants import FREE
 
 def tune_centerline(occupancy_grid):
