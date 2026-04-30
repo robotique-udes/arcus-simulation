@@ -7,17 +7,21 @@
 #include <QCloseEvent>
 #include <QApplication>
 #include <QGridLayout>
-#include "QWidget/QExampleWidget/QExampleWidget.hpp"
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
+#include "QWidget/QCarInfoWidget/QCarInfoWidget.hpp"
+
+#include "QWidget/QArcusMaster/QArcusMaster.hpp"
+#include "QWidget/QLocalNodes/QLocalNodes.hpp"
+#include "QWidget/QPurePursuitWidget/QPurePursuit.hpp"
+#include "QWidget/QMapRacelineHelpers/QMapRacelineHelpers.hpp"
 #include "rclcpp/rclcpp.hpp"
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
-
-    static constexpr const char* VISUALIZATION_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch f1tenth_gym_ros visualize_launch.py";
-    static constexpr const char* CONTROLLER_DRIVER = "source /opt/ros/humble/setup.bash && ros2 launch drive_controller drive_controller.launch.py";
 
   public:
     explicit MainWindow(std::shared_ptr<rclcpp::Node> guiNode_);
@@ -25,14 +29,15 @@ class MainWindow : public QMainWindow
   private:
     void closeEvent(QCloseEvent* event_) override;
 
-    QWidget _centralWidget = QWidget(this);
-    QGridLayout _gridLayout = QGridLayout(&_centralWidget);
+    QWidget _centralWidget = QWidget(this); // main widget that holds all other widgets, set as central widget of QMainWindow
+    QGridLayout _gridLayout = QGridLayout(&_centralWidget); // grid layout to hold child widgets
 
-    QExampleWidget _exampleWidget;
-    QTopicSelector _topicSelector;
-
-    QProcessHandler _visualizationProcess;
-    QProcessHandler _controllerDriver;
+    QArcusMaster _arcusMasterWidget;
+    QCarInfoWidget _carInfoWidget;
+    QLocalNodesWidget _localNodesWidget;
+    QMapRacelineHelpers _mapRacelineHelpers;
+    QPurePursuitWidget _purePursuitWidget;
+    QWidget _exampleWidget5;
 };
 
 #endif  // MAIN_WINDOWS_HPP

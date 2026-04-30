@@ -12,7 +12,9 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(ackermann_msgs REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+find_package(arcus_msgs REQUIRED)
 
 # Qt auto-processing
 set(CMAKE_AUTOMOC ON)
@@ -36,12 +38,19 @@ add_custom_target(run_generate_ui ALL DEPENDS ${CMAKE_BINARY_DIR}/ui_generated)
 add_executable(main_gui src/gui.cpp
     src/MainWindow.cpp
     src/QWidget/QExampleWidget/QExampleWidget.cpp
+    src/QWidget/QCarInfoWidget/QCarInfoWidget.cpp
+    src/QWidget/QArcusMaster/QArcusMaster.cpp
+    src/QWidget/QLocalNodes/QLocalNodes.cpp
+    src/QWidget/QMapRacelineHelpers/QMapRacelineHelpers.cpp
+    src/QWidget/QPurePursuitWidget/QPurePursuit.cpp
+    src/QWidget/QArcusMaster/QSafetyWidget/QSafetyWidget.cpp
     src/Global/Helper/QTopicSelector/QTopicSelector.cpp
     src/Global/Helper/QProcessHandler/QProcessHandler.cpp
+    src/Global/Helper/QParamSlider/QParamSlider.cpp
 )
 
 # ROS2 dependencies
-ament_target_dependencies(main_gui rclcpp nav_msgs)
+ament_target_dependencies(main_gui rclcpp nav_msgs arcus_msgs ackermann_msgs)
 
 # Qt6 linking (plain style, no PRIVATE keyword)
 target_link_libraries(main_gui Qt6::Core Qt6::Widgets)

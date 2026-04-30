@@ -2,16 +2,29 @@
 
 MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     QMainWindow(nullptr),
-    _exampleWidget(guiNode_, this),
-    _topicSelector(this, "sensor_msgs/msg/LaserScan", "LaserScan", guiNode_),
-    _visualizationProcess(this, "Visualization", VISUALIZATION_PROCESS_CMD, true),
-    _controllerDriver(this, "Controller Driver", CONTROLLER_DRIVER, true)
+    _arcusMasterWidget(guiNode_, this),
+    _carInfoWidget(guiNode_, this),
+    _localNodesWidget(guiNode_, this),
+    _mapRacelineHelpers(guiNode_, this),
+    _purePursuitWidget(guiNode_, this),
+    _exampleWidget5(this)
 {
+    
     this->setCentralWidget(&_centralWidget);
-
     _centralWidget.setLayout(&_gridLayout);
-    _gridLayout.addWidget(&_visualizationProcess);
-    _gridLayout.addWidget(&_controllerDriver);
+
+    _gridLayout.addWidget(&_arcusMasterWidget, 0, 0);
+    _gridLayout.addWidget(&_carInfoWidget, 0, 1);
+    _gridLayout.addWidget(&_localNodesWidget, 0, 2);
+    _gridLayout.addWidget(&_mapRacelineHelpers, 1, 0);
+    _gridLayout.addWidget(&_purePursuitWidget, 1, 1);
+    _gridLayout.addWidget(&_exampleWidget5, 1, 2);
+
+    _gridLayout.setColumnStretch(0, 1);
+    _gridLayout.setColumnStretch(1, 1);
+    _gridLayout.setColumnStretch(2, 1);
+    _gridLayout.setRowStretch(0, 1);
+    _gridLayout.setRowStretch(1, 1);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event_)

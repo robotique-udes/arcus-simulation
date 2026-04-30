@@ -42,7 +42,7 @@ bridge:
     scan_beams: 1079
 
     # map parameters
-    map_path: '/sim_ws/src/f1tenth_gym_ros/maps/Spielberg_map'
+    map_path: '/sim_ws/src/arcus/slam_map_saver/slam_maps/kingston_map'
     slam_maps_dir: '/sim_ws/src/arcus/slam_map_saver/slam_maps'
     map_img_ext: '.pgm'
 
@@ -63,6 +63,6 @@ bridge:
     kb_teleop: True
 
     #Use simulated localization (EKF + AMCL)
-    use_sim_localization: True
+    use_sim_localization: False
     #Run slam
     run_slam: False #Overwrites localization if true

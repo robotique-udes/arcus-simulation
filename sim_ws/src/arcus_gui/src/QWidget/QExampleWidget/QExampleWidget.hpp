@@ -11,7 +11,7 @@ class QExampleWidget : public QWidget
 {
     Q_OBJECT
 
-    static constexpr const char* TOPIC_ODOM = "/ego_racecar/odom";
+    static constexpr const char* TOPIC_ODOM = "/pf/odom";
 
     static constexpr const size_t DELAY_CHECK_ODOM_MS = 100UL;
     static constexpr const size_t WATCH_DOG_DELAY_MS = 1000UL;
