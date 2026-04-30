@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True)
 class RacelineConfig:
     # Map files
-    map_folder: str = "slam_maps"
+    map_folder: str = "../raceLine_maker/slam_maps"
     forced_map_basename: str = ""
 
     # Output
@@ -18,8 +18,8 @@ class RacelineConfig:
     safety_weight: float = 100
     turn_weight: float = 8.0
 
-    # Raceline mode: "astar" or "manual_spline"
-    raceline_mode: str = "astar"
+    # Raceline mode: "astar", "min_curvature" or "manual_spline"
+    raceline_mode: str = "min_curvature"
 
     # Manual spline settings
     manual_spline_smoothing: float = 8.0
@@ -39,6 +39,11 @@ class RacelineConfig:
     drag_preview_points: int = 260
     drag_final_preview_points: int = 1200
     drag_max_redraw_hz: float = 24.0
+
+    # Min curvature
+    debug_min_curvature: bool = False
+    vehicle_width: float = 0.3  # metres
+    min_curv_smoothing_factor: float = 1000.0
 
 
 DEFAULT_CONFIG = RacelineConfig()

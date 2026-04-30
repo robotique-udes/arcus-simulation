@@ -20,6 +20,21 @@ from utils.map_io import (
     save_csv,
     yaml_opener,
 )
+from utils.min_curvature import (
+    compute_normals,
+    debug_plot_normals,
+    debug_plot_solver_inputs,
+    debug_show_centerline_pipeline,
+    compute_track_widths,
+    order_centerline,
+    plot_raceline_result,
+    plot_widths_simple,
+    resample_path,
+    solve_min_curvature_raceline,
+)
+from utils.ui_centerline import (
+    tune_centerline,
+)
 from utils.planning import brushfire_algo, plan_full_path
 from utils.ui_raceline_editor import edit_raceline_with_drag
 from raceline_config import DEFAULT_CONFIG
@@ -183,6 +198,113 @@ def run():
                     print(f"Edited raceline confirmed: {len(smooth_raceline)} waypoints")
                 else:
                     print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
+
+    elif cfg.raceline_mode == "min_curvature":
+        center = tune_centerline(occupancy_grid)
+
+        ordered = order_centerline(center)
+
+        resampled = resample_path(ordered, 500)
+
+        smooth = smooth_path(
+            resampled,
+            smoothing_factor=cfg.min_curv_smoothing_factor,
+            num_points=len(resampled),
+            closed=True
+        )
+
+        raw_raceline = smooth
+        waypoints=[]
+        
+        if cfg.debug_min_curvature:
+            debug_show_centerline_pipeline(
+                occupancy_grid,
+                center,
+                ordered,
+                resampled,
+                smooth
+            )
+
+        normals = compute_normals(smooth)
+
+        if cfg.debug_min_curvature:
+            debug_plot_normals(occupancy_grid, smooth, normals)
+
+        w_left, w_right = compute_track_widths(
+            smooth,
+            normals,
+            occupancy_grid,
+            res,
+            vehicle_width=cfg.vehicle_width
+        )
+
+        if cfg.debug_min_curvature:
+            plot_widths_simple(
+                smooth,
+                normals,
+                w_left,
+                w_right,
+                occupancy_grid,
+                res,
+            )
+
+        if cfg.debug_min_curvature:
+            debug_plot_solver_inputs(
+                occupancy_grid,
+                smooth,
+                normals,
+                w_left,
+                w_right,
+                res
+            )
+
+        min_curv_raceline, alpha = solve_min_curvature_raceline(
+            smooth,
+            normals,
+            w_left,
+            w_right,
+            res
+        )
+
+        if cfg.debug_min_curvature:
+            plot_raceline_result(
+                occupancy_grid,
+                smooth,
+                min_curv_raceline,
+                normals,
+                w_left,
+                w_right,
+                res
+            )
+
+        smooth_raceline = smooth_path(
+            min_curv_raceline,
+            smoothing_factor=cfg.min_curv_smoothing_factor,
+            num_points=len(min_curv_raceline),
+            closed=True
+        )
+
+        if cfg.enable_drag_edit:
+            print("\nOpening drag editor for post-min_curvature raceline tuning...")
+            edited = edit_raceline_with_drag(
+                occupancy_grid,
+                smooth_raceline,
+                handle_stride=cfg.drag_handle_stride,
+                smoothing_factor=cfg.drag_smoothing_factor,
+                lock_start=True,
+                adaptive_handles=cfg.drag_adaptive_handles,
+                curvature_handle_ratio=cfg.drag_curvature_handle_ratio,
+                min_handle_spacing=cfg.drag_min_handle_spacing,
+                drag_influence_radius=cfg.drag_influence_radius,
+                drag_preview_points=cfg.drag_preview_points,
+                final_preview_points=cfg.drag_final_preview_points,
+                max_redraw_hz=cfg.drag_max_redraw_hz,
+            )
+            if edited is not None:
+                smooth_raceline = edited
+                print(f"Edited raceline confirmed: {len(smooth_raceline)} waypoints")
+            else:
+                print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
 
     elif cfg.raceline_mode == "manual_spline":
         print("\nOpening manual spline window.")
