@@ -53,7 +53,10 @@ RUN apt-get update --fix-missing && \
     ros-humble-rmw-cyclonedds-cpp \
     x11-apps \
     x11-apps xterm \
-    clang-format 
+    clang-format \
+    openssh-client \
+    iputils-ping \
+    libnss-mdns
 
 RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
 
