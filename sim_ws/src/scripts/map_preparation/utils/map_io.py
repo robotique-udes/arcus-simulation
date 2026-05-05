@@ -80,14 +80,15 @@ def find_latest_map_pair(map_folder):
         if not os.path.isfile(pgm_path):
             continue
 
-        candidates.append((m.group(1), entry, pgm_name))
+        is_clean = stem.endswith("_clean")
+        candidates.append((m.group(1), is_clean, entry, pgm_name))
 
     if not candidates:
         raise FileNotFoundError(
             f"No timestamped YAML/PGM map pairs found in '{map_folder}'."
         )
 
-    _, yaml_name, pgm_name = max(candidates, key=lambda x: x[0])
+    _, _, yaml_name, pgm_name = max(candidates, key=lambda x: (x[0], x[1]))
     return yaml_name, pgm_name
 
 
