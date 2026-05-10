@@ -305,9 +305,24 @@ def solve_min_curvature_raceline(
     ]
 
     prob = cp.Problem(cp.Minimize(cost), constraints)
-    prob.solve(solver=cp.OSQP, verbose=False, max_iter=10000, eps_abs=1e-6, eps_rel=1e-6)
+    solver_attempts = [
+        (cp.ECOS, dict(verbose=False, max_iters=2000, abstol=1e-7, reltol=1e-7)),
+        (cp.OSQP, dict(verbose=False, max_iter=10000, eps_abs=1e-6, eps_rel=1e-6)),
+        (cp.SCS, dict(verbose=False, max_iters=2500, eps=1e-5)),
+    ]
 
-    if alpha.value is None:
+    solved = False
+    for solver, solver_kwargs in solver_attempts:
+        try:
+            prob.solve(solver=solver, **solver_kwargs)
+        except cp.error.SolverError:
+            continue
+
+        if alpha.value is not None:
+            solved = True
+            break
+
+    if not solved:
         print("[WARNING] Solver did not converge — returning centreline as fallback.")
         return p, np.zeros(N)
 
