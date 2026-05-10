@@ -11,9 +11,7 @@ class QMapRacelineHelpers : public QWidget
 {
     Q_OBJECT
 
-    static constexpr const char* MAP_CAR_TO_LOCAL_CMD = "source /opt/ros/humble/setup.bash && ros2 launch f1tenth_gym_ros visualize_launch.py";
-    static constexpr const char* RACELINE_SCRIPT_CMD = "source /opt/ros/humble/setup.bash && ros2 launch drive_controller drive_controller.launch.py";
-    static constexpr const char* WAYPOINTS_LOCAL_TO_CAR_CMD = "source /opt/ros/humble/setup.bash && ros2 launch drive_controller drive_controller.launch.py";
+    static constexpr const char* RACELINE_HELPER_CMD = "python3 /sim_ws/src/scripts/map_preparation/prepare_map.py";
 
   public:
     QMapRacelineHelpers(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
@@ -25,9 +23,7 @@ class QMapRacelineHelpers : public QWidget
 
     std::shared_ptr<rclcpp::Node> _node;
 
-    QProcessHandler _mapCarToLocalProcess;
-    QProcessHandler _racelineScriptProcess;
-    QProcessHandler _waypointsLocalToCarProcess;
+    QProcessHandler _racelineHelper;
 
     Ui::MapRacelineHelpers _ui;
 };

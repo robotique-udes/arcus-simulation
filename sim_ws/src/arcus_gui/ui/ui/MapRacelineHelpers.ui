@@ -51,7 +51,7 @@
         </font>
        </property>
        <property name="text">
-        <string>MAP/RACELINE HELPERS</string>
+        <string>MAPPIN AND RISK</string>
        </property>
        <property name="echoMode">
         <enum>QLineEdit::Normal</enum>

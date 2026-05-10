@@ -7,7 +7,7 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _localNodesWidget(guiNode_, this),
     _mapRacelineHelpers(guiNode_, this),
     _purePursuitWidget(guiNode_, this),
-    _exampleWidget5(this)
+    _gapFollowWidget(guiNode_, this)
 {
     
     this->setCentralWidget(&_centralWidget);
@@ -18,7 +18,7 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _gridLayout.addWidget(&_localNodesWidget, 0, 2);
     _gridLayout.addWidget(&_mapRacelineHelpers, 1, 0);
     _gridLayout.addWidget(&_purePursuitWidget, 1, 1);
-    _gridLayout.addWidget(&_exampleWidget5, 1, 2);
+    _gridLayout.addWidget(&_gapFollowWidget, 1, 2);
 
     _gridLayout.setColumnStretch(0, 1);
     _gridLayout.setColumnStretch(1, 1);
