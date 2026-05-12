@@ -437,3 +437,52 @@ def debug_plot_solver_inputs(
     plt.legend()
     plt.axis("equal")
     plt.show()
+
+def solve_min_curvature_from_raceline(
+    raceline,
+    occupancy_grid,
+    resolution,
+    vehicle_width=0.0,
+    smoothness_weight=1e-4,
+    debug=False,
+):
+    """
+    Solve min-curvature using a provided raceline as the reference path.
+
+    Returns:
+        raceline_px, alpha, normals, w_left, w_right
+    """
+    if raceline is None or len(raceline) < 3:
+        return np.array(raceline, dtype=float), np.zeros(0), None, None, None
+
+    normals = compute_normals(raceline)
+    w_left, w_right = compute_track_widths(
+        raceline,
+        normals,
+        occupancy_grid,
+        resolution,
+        vehicle_width=vehicle_width,
+    )
+
+    if debug:
+        debug_plot_normals(occupancy_grid, raceline, normals)
+        plot_widths_simple(raceline, normals, w_left, w_right, occupancy_grid, resolution)
+        debug_plot_solver_inputs(
+            occupancy_grid,
+            raceline,
+            normals,
+            w_left,
+            w_right,
+            resolution,
+        )
+
+    min_curv_raceline, alpha = solve_min_curvature_raceline(
+        raceline,
+        normals,
+        w_left,
+        w_right,
+        resolution,
+        smoothness_weight=smoothness_weight,
+    )
+
+    return min_curv_raceline, alpha, normals, w_left, w_right

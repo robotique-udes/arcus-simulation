@@ -65,6 +65,7 @@ def tune_centerline(occupancy_grid):
 
         skeleton = skeletonize(ridge)
         skeleton = keep_largest_component(skeleton)
+        skeleton = prune_skeleton(skeleton, iterations=20)
 
         pts = np.column_stack(np.nonzero(skeleton))
         return pts
@@ -128,3 +129,18 @@ def keep_largest_component(binary):
 
     largest = sizes.argmax()
     return (labels == largest)
+
+def prune_skeleton(skeleton, iterations=10):
+    """Remove spur branches by iteratively deleting endpoint pixels."""
+    skel = skeleton.copy()
+    for _ in range(iterations):
+        # Count 8-connected neighbors for each skeleton pixel
+        neighbors = sum(
+            np.roll(np.roll(skel, i, 0), j, 1)
+            for i in (-1, 0, 1) for j in (-1, 0, 1)
+            if (i != 0 or j != 0)
+        )
+        # An endpoint has exactly 1 neighbor
+        endpoints = skel & (neighbors == 1)
+        skel[endpoints] = False
+    return skel
