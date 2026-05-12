@@ -31,10 +31,9 @@ from utils.min_curvature import (
     plot_widths_simple,
     resample_path,
     solve_min_curvature_raceline,
+    solve_min_curvature_from_raceline,
 )
-from utils.ui_centerline import (
-    tune_centerline,
-)
+from utils.ui_centerline import tune_centerline
 from utils.planning import brushfire_algo, plan_full_path
 from utils.ui_raceline_editor import edit_raceline_with_drag
 from raceline_config import DEFAULT_CONFIG
@@ -108,6 +107,10 @@ def run():
             imported_grid = [
                 world_to_grid((x, y), origin, res, height) for x, y in imported_world
             ]
+
+            if not imported_grid:
+                print("Imported raceline is empty. Exiting.")
+                return
 
             smooth_raceline = imported_grid
             raw_raceline = imported_grid
@@ -198,6 +201,36 @@ def run():
                     print(f"Edited raceline confirmed: {len(smooth_raceline)} waypoints")
                 else:
                     print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
+
+            min_curv_raceline, alpha, normals, w_left, w_right = (
+                solve_min_curvature_from_raceline(
+                    smooth_raceline,
+                    occupancy_grid,
+                    res,
+                    vehicle_width=cfg.vehicle_width,
+                    smoothness_weight=1e-4,
+                    debug=cfg.debug_min_curvature,
+                )
+            )
+
+            if normals is not None:
+                plot_raceline_result(
+                    occupancy_grid,
+                    smooth_raceline,
+                    min_curv_raceline,
+                    normals,
+                    w_left,
+                    w_right,
+                    res,
+                    title="Min Curvature (from A*)",
+                )
+
+            smooth_raceline = smooth_path(
+                min_curv_raceline,
+                smoothing_factor=cfg.min_curv_smoothing_factor,
+                num_points=len(min_curv_raceline),
+                closed=True,
+            )
 
     elif cfg.raceline_mode == "min_curvature":
         center = tune_centerline(occupancy_grid)
@@ -306,6 +339,7 @@ def run():
             else:
                 print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
 
+
     elif cfg.raceline_mode == "manual_spline":
         print("\nOpening manual spline window.")
         print("  Left-click  : add control points around the track")
@@ -331,7 +365,8 @@ def run():
         waypoints = control_points[1:]
     else:
         raise ValueError(
-            f"Unknown RACELINE_MODE '{cfg.raceline_mode}'. Use 'astar' or 'manual_spline'."
+            f"Unknown RACELINE_MODE '{cfg.raceline_mode}'. Use 'astar', "
+            "'min_curvature' or 'manual_spline'."
         )
 
     path_csv = os.path.join(cfg.csv_folder, cfg.csv_name)
