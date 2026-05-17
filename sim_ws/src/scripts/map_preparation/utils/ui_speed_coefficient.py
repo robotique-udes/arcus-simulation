@@ -5,422 +5,442 @@ import csv
 from pathlib import Path
 import warnings
 
-# Suppress all warnings
 warnings.filterwarnings('ignore')
 
 from .viz import build_vis
 from .grid_utils import world_to_grid, grid_to_world
 
 
+def _coeff_to_color(c):
+    """0.0 → red | 1.0 → orange | 2.0 → green"""
+    c = np.clip(c, 0.0, 2.0)
+    if c <= 1.0:
+        t = c
+        r = 1.0
+        g = 0.133 + t * (0.533 - 0.133)
+        b = 0.133 * (1.0 - t)
+    else:
+        t = c - 1.0
+        r = 1.0 - t
+        g = 0.533 + t * (0.867 - 0.533)
+        b = 0.0
+    return (r, g, b)
+
+
+def _arc_indices(idx1, idx2, n, flipped):
+    """
+    Return the list of waypoint indices for one of the two arcs between idx1 and idx2
+    on a closed loop of length n.
+
+    flipped=False → the arc that goes directly idx1 … idx2 (shorter if idx2 > idx1)
+    flipped=True  → the wrap-around arc idx2 … n-1, 0 … idx1
+    """
+    a, b = sorted([idx1, idx2])
+    if not flipped:
+        return list(range(a, b + 1))
+    else:
+        # wrap: b → n-1 → 0 → a
+        return list(range(b, n)) + list(range(0, a + 1))
+
+
+# ── Layout constants ──────────────────────────────────────────────────────────
+#  0.010  buttons    h=0.045  top=0.055
+#  0.066  status     (fig.text, single line)
+#  0.093  slider     h=0.030  top=0.123
+#  0.135  colourbar  h=0.014  top=0.149
+#  0.172  ── map axes bottom ──────────────────────────────────────────────────
+
+_BTN_Y  = 0.010;  _BTN_H  = 0.045
+_STA_Y  = 0.066
+_SLD_Y  = 0.093;  _SLD_H  = 0.030
+_CB_Y   = 0.135;  _CB_H   = 0.014
+_AX_BOT = 0.172
+
+_LEFT  = 0.08
+_RIGHT = 0.95
+_W     = _RIGHT - _LEFT
+
+
 class SpeedCoefficientEditor:
     """
-    Interactive editor to assign speed coefficients (0-5) to waypoint segments.
-    
+    Interactive editor to assign speed coefficients (0–2) to waypoint segments.
+
+    Two waypoints always define two arcs on a closed loop.  After selecting
+    both endpoints the active arc is highlighted in bright blue; the other arc
+    is shown dimmed.  Click "Flip arc" to switch which arc is active before
+    applying the coefficient.
+
     Workflow:
-    1. Display map + raceline
-    2. Click waypoint 1 → Click waypoint 2 → Selects segment
-    3. Use slider to set speed coefficient for that segment
-    4. Repeat or save
+    1. Click waypoint A.
+    2. Click waypoint B  →  one arc lights up, the other dims.
+    3. Click "Flip arc" if you want the other arc.
+    4. Adjust slider  →  click Apply.
+    5. Repeat or Save & Close.
     """
-    
+
     def __init__(self, occupancy_grid, waypoints_path, map_metadata=None):
-        """
-        Parameters
-        ----------
-        occupancy_grid : np.ndarray
-            The occupancy grid for visualization
-        waypoints_path : str
-            Path to waypoints.csv (world coordinates)
-        map_metadata : dict, optional
-            Map YAML metadata with origin, resolution, etc.
-        """
         self.occupancy_grid = occupancy_grid
         self.waypoints_path = Path(waypoints_path)
-        self.map_metadata = map_metadata or {}
-        
-        # Extract transformation parameters from metadata
-        self.origin = self.map_metadata.get('origin', [0.0, 0.0, 0.0])[:2]
+        self.map_metadata   = map_metadata or {}
+
+        self.origin     = self.map_metadata.get('origin', [0.0, 0.0, 0.0])[:2]
         self.resolution = self.map_metadata.get('resolution', 0.05)
-        self.height = self.occupancy_grid.shape[0]
-        
-        # Load waypoints (world coordinates)
-        self.waypoints_world = []  # [(x, y), ...]
-        self.waypoints_grid = []   # [(row, col), ...]
-        self.speed_coeffs = []
+        self.height     = self.occupancy_grid.shape[0]
+
+        self.waypoints_world = []
+        self.waypoints_grid  = []
+        self.speed_coeffs    = []
         self._load_waypoints()
-        
-        # Editor state
-        self.selected_indices = []  # [start_idx, end_idx]
-        self.current_segment = None
-        self.segment_coeffs = {}  # {(start, end): coeff}
-        
-        # UI state
-        self.fig = None
-        self.ax = None
-        self.line_raceline = None
-        self.line_segment = None
-        self.scatter_points = None
-        self.scatter_selected = None
-        self.slider_coeff = None
-        self.result = None
-        
+
+        self.selected_indices  = []
+        self.current_segment   = None   # list of indices in active arc
+        self.arc_flipped       = False
+
+        self.fig               = None
+        self.ax                = None
+        self.scatter_selected  = None
+        self.scatter_segment   = None   # active arc — bright blue squares
+        self.scatter_other_arc = None   # inactive arc — dim grey squares
+        self.slider_coeff      = None
+        self.text_coeff        = None
+        self.text_status       = None
+        self.btn_flip          = None
+        self.result            = None
+
+    # ── I/O ──────────────────────────────────────────────────────────────────
+
     def _load_waypoints(self):
-        """Load waypoints and existing speed coefficients from CSV."""
         try:
             with open(self.waypoints_path, 'r') as f:
-                reader = csv.reader(f)
-                for row in reader:
+                for row in csv.reader(f):
                     if len(row) >= 2:
                         x, y = float(row[0]), float(row[1])
                         self.waypoints_world.append((x, y))
-                        
-                        # Convert world to grid for visualization
-                        grid_pos = world_to_grid((x, y), self.origin, self.resolution, self.height)
-                        self.waypoints_grid.append(grid_pos)
-                        
-                        # Load existing speed coeff if present (column 3)
-                        coeff = float(row[2]) if len(row) > 2 else 1.0
-                        self.speed_coeffs.append(coeff)
-            
+                        self.waypoints_grid.append(
+                            world_to_grid((x, y), self.origin, self.resolution, self.height)
+                        )
+                        self.speed_coeffs.append(float(row[2]) if len(row) > 2 else 1.0)
             print(f"[SpeedCoefficientEditor] Loaded {len(self.waypoints_world)} waypoints")
-            print(f"  Origin: {self.origin}, Resolution: {self.resolution}, Grid height: {self.height}")
         except Exception as e:
             print(f"[SpeedCoefficientEditor] Error loading waypoints: {e}")
-            
+
     def _save_waypoints(self):
-        """Save waypoints with speed coefficients back to CSV (world coords)."""
         try:
             with open(self.waypoints_path, 'w', newline='') as f:
-                writer = csv.writer(f)
-                for pt_world, coeff in zip(self.waypoints_world, self.speed_coeffs):
-                    x, y = pt_world
-                    writer.writerow([x, y, coeff])
-            print(f"[SpeedCoefficientEditor] Saved {len(self.waypoints_world)} waypoints to {self.waypoints_path}")
+                w = csv.writer(f)
+                for (x, y), c in zip(self.waypoints_world, self.speed_coeffs):
+                    w.writerow([x, y, c])
+            print(f"[SpeedCoefficientEditor] Saved to {self.waypoints_path}")
             return True
         except Exception as e:
-            print(f"[SpeedCoefficientEditor] Error saving waypoints: {e}")
+            print(f"[SpeedCoefficientEditor] Save error: {e}")
             return False
-    
+
+    # ── Main entry point ──────────────────────────────────────────────────────
+
     def edit(self):
-        """Open interactive editor. Returns True if saved, False if cancelled."""
-        if not self.waypoints_world or len(self.waypoints_world) < 2:
-            print("[SpeedCoefficientEditor] Not enough waypoints to edit.")
+        """Open the editor. Returns True if saved, False if cancelled."""
+        if len(self.waypoints_world) < 2:
+            print("[SpeedCoefficientEditor] Not enough waypoints.")
             return False
-        
-        # Suppress matplotlib warnings
+
         plt.rcParams['figure.dpi'] = 100
-        
-        # Build visualization
         vis = build_vis(self.occupancy_grid)
-        
-        # Create figure with dark theme
-        self.fig, self.ax = plt.subplots(figsize=(16, 10))
-        self.fig.patch.set_facecolor("#0d1117")
-        self.ax.set_facecolor("#0d1117")
-        plt.subplots_adjust(bottom=0.28, left=0.08, right=0.95, top=0.92)
-        
-        # Display map
-        self.ax.imshow(vis, origin="lower", cmap='gray', interpolation='nearest')
-        self.ax.tick_params(colors="#666666", labelsize=8)
-        for spine in self.ax.spines.values():
-            spine.set_edgecolor("#333333")
-            spine.set_linewidth(0.5)
-        
-        # Draw raceline colored by speed coefficient
-        waypoints_grid_array = np.array(self.waypoints_grid)
-        
-        # Color palette: smooth gradient from red (slow) to green (fast)
-        colors_palette = [
-            '#ff3333',  # 0.0 - red
-            '#ff6600',  # 0.5 - orange-red
-            '#ffaa00',  # 1.0 - orange
-            '#ffdd00',  # 1.5 - yellow
-            '#aaee00',  # 2.0 - yellow-green
-            '#44dd00',  # 2.5 - lime
-            '#00cc00',  # 3.0 - green
-        ]
-        
-        for i in range(len(waypoints_grid_array) - 1):
-            col1, row1 = waypoints_grid_array[i, 1], waypoints_grid_array[i, 0]
-            col2, row2 = waypoints_grid_array[i+1, 1], waypoints_grid_array[i+1, 0]
-            
-            # Interpolate color based on speed coefficient
-            coeff = (self.speed_coeffs[i] + self.speed_coeffs[i+1]) / 2.0
-            coeff = np.clip(coeff, 0, 3.0)
-            color_idx = int((coeff / 3.0) * (len(colors_palette) - 1))
-            color = colors_palette[color_idx]
-            
-            self.ax.plot([col1, col2], [row1, row2], color=color, linewidth=4, zorder=2, solid_capstyle='round')
-        
-        # Scatter for selected waypoints (cyan circles)
+
+        self.fig, self.ax = plt.subplots(figsize=(14, 11))
+        self.fig.patch.set_facecolor("#1a1a2e")
+        self.ax.set_facecolor("#1a1a2e")
+        plt.subplots_adjust(bottom=_AX_BOT, left=_LEFT, right=_RIGHT, top=0.92)
+
+        self.ax.imshow(vis, origin="lower", interpolation='nearest')
+        self.ax.tick_params(colors="#888888", labelsize=8)
+        for sp in self.ax.spines.values():
+            sp.set_edgecolor("#333355")
+            sp.set_linewidth(0.5)
+
+        self._draw_raceline()
+
+        # Selected endpoint markers
         self.scatter_selected = self.ax.scatter(
-            [], [], c='#00ffff', s=400, marker='o', edgecolors='white', linewidth=2.5,
-            zorder=5
+            [], [], c='#00ffff', s=280, marker='o',
+            edgecolors='white', linewidth=2.0, zorder=6
         )
-        
-        # Scatter for segment highlight (blue squares)
+        # Active arc — bright blue squares
         self.scatter_segment = self.ax.scatter(
-            [], [], c='#1f88ff', s=120, marker='s', edgecolors='#00ffff', linewidth=1.5,
-            zorder=4, alpha=0.8
+            [], [], c='#1f88ff', s=28, marker='s',
+            edgecolors='#00ccff', linewidth=0.6,
+            zorder=4, alpha=0.85
         )
-        
-        # Title
-        title_text = (
+        # Inactive arc — dim, so user can see which arc they're NOT editing
+        self.scatter_other_arc = self.ax.scatter(
+            [], [], c='#3a3a5a', s=14, marker='s',
+            edgecolors='none', linewidth=0,
+            zorder=3, alpha=0.6
+        )
+
+        self.ax.set_title(
             "Speed Coefficient Editor\n"
-            "① Click waypoint 1  →  ② Click waypoint 2  →  ③ Adjust slider  →  ④ Click 'Apply'\n"
-            "Color: Red (slow) → Orange → Yellow → Green (fast)  |  Range: 0.0 – 3.0"
+            "① Click waypoint 1  →  ② Click waypoint 2  →  ③ Flip arc if needed  →  ④ Adjust & Apply",
+            color="white", fontsize=11, weight='bold', pad=10
         )
-        self.ax.set_title(title_text, color="#e0e0e0", fontsize=11, weight='bold', pad=15)
-        
-        # Custom legend with manual entries (no label warnings)
-        from matplotlib.lines import Line2D
-        legend_elements = [
-            Line2D([0], [0], color='#ff3333', lw=4, label='Speed 0.0 (slow)', solid_capstyle='round'),
-            Line2D([0], [0], color='#ffdd00', lw=4, label='Speed 1.5 (medium)', solid_capstyle='round'),
-            Line2D([0], [0], color='#00cc00', lw=4, label='Speed 3.0 (fast)', solid_capstyle='round'),
-            Line2D([0], [0], marker='o', color='w', markerfacecolor='#00ffff', markersize=8,
-                   markeredgecolor='white', markeredgewidth=1.5, label='Selected waypoint', linestyle=''),
-            Line2D([0], [0], marker='s', color='w', markerfacecolor='#1f88ff', markersize=5,
-                   markeredgecolor='#00ffff', markeredgewidth=1, label='Segment range', linestyle=''),
-        ]
-        self.ax.legend(handles=legend_elements, loc='upper left', fontsize=8.5,
-                      facecolor='#1a1a2e', edgecolor='#444444', framealpha=0.95)
-        
-        # Slider for speed coefficient (0-3)
-        ax_slider = plt.axes([0.15, 0.165, 0.7, 0.035])
-        ax_slider.set_facecolor('#1a1a2e')
+
+        # ── Colour bar ────────────────────────────────────────────────────────
+        ax_cb     = self.fig.add_axes([_LEFT, _CB_Y, _W, _CB_H])
+        cb_vals   = np.linspace(0, 2, 256)
+        cb_colors = np.array([_coeff_to_color(v) for v in cb_vals])
+        ax_cb.imshow(cb_colors.reshape(1, 256, 3), aspect='auto', origin='lower')
+        ax_cb.set_xticks([0, 64, 128, 192, 255])
+        ax_cb.set_xticklabels(
+            ['0.0  slow', '0.5', '1.0  normal', '1.5', '2.0  fast'],
+            color='#aaaacc', fontsize=8
+        )
+        ax_cb.set_yticks([])
+        for sp in ax_cb.spines.values():
+            sp.set_edgecolor("#333355")
+
+        # ── Slider + readout ──────────────────────────────────────────────────
+        ax_sld = self.fig.add_axes([_LEFT, _SLD_Y, _W * 0.74, _SLD_H],
+                                    facecolor='#1f1f38')
         self.slider_coeff = Slider(
-            ax_slider, 'Speed Multiplier', 0.0, 3.0, valinit=1.0, 
-            color='#00ffff', track_color='#333333'
+            ax_sld, 'Speed ×', 0.0, 2.0, valinit=1.0,
+            color='#00d2dc', track_color='#333355'
         )
-        ax_slider.tick_params(colors='#666666', labelsize=9)
+        self.slider_coeff.label.set_color('white')
+        self.slider_coeff.label.set_fontsize(10)
+        self.slider_coeff.valtext.set_visible(False)
         self.slider_coeff.on_changed(self._on_slider_changed)
-        
-        # Text display for slider value
-        self.text_coeff = self.fig.text(0.88, 0.175, '1.00', fontsize=14, color='#00ffff', 
-                                        weight='bold', family='monospace')
-        
-        # Status text
-        self.text_status = self.fig.text(0.15, 0.08, 'Ready: Select two waypoints', 
-                                        fontsize=10, color='#aaaaaa', family='monospace')
-        
-        # Buttons with better styling
-        btn_height = 0.045
-        btn_spacing = 0.18
-        
-        ax_apply = plt.axes([0.15, 0.01, btn_spacing - 0.01, btn_height])
-        btn_apply = Button(ax_apply, 'Apply', color='#1f88ff', hovercolor='#00ccff')
-        btn_apply.label.set_color('#ffffff')
-        btn_apply.label.set_fontsize(10)
-        btn_apply.on_clicked(lambda e: self._apply_coefficient())
-        
-        ax_clear = plt.axes([0.15 + btn_spacing, 0.01, btn_spacing - 0.01, btn_height])
-        btn_clear = Button(ax_clear, 'Clear', color='#ff8844', hovercolor='#ffaa66')
-        btn_clear.label.set_color('#ffffff')
-        btn_clear.label.set_fontsize(10)
-        btn_clear.on_clicked(lambda e: self._clear_selection())
-        
-        ax_save = plt.axes([0.15 + btn_spacing * 2, 0.01, btn_spacing - 0.01, btn_height])
-        btn_save = Button(ax_save, 'Save & Close', color='#00cc00', hovercolor='#00ff00')
-        btn_save.label.set_color('#000000')
-        btn_save.label.set_fontsize(10)
-        btn_save.on_clicked(lambda e: self._save_and_close())
-        
-        ax_cancel = plt.axes([0.15 + btn_spacing * 3, 0.01, btn_spacing - 0.01, btn_height])
-        btn_cancel = Button(ax_cancel, 'Cancel', color='#cc0000', hovercolor='#ff0000')
-        btn_cancel.label.set_color('#ffffff')
-        btn_cancel.label.set_fontsize(10)
-        btn_cancel.on_clicked(lambda e: self._cancel())
-        
-        # Connect click event
+
+        self.text_coeff = self.fig.text(
+            _LEFT + _W * 0.77,
+            _SLD_Y + _SLD_H * 0.5,
+            '1.00',
+            fontsize=13, color='#00d2dc', weight='bold',
+            family='monospace', va='center', ha='left'
+        )
+
+        # ── Status text ───────────────────────────────────────────────────────
+        self.text_status = self.fig.text(
+            0.5, _STA_Y,
+            'Ready — click two waypoints to select a segment',
+            fontsize=9, color='#aaaacc', family='monospace',
+            ha='center', va='center'
+        )
+
+        # ── Buttons ───────────────────────────────────────────────────────────
+        # Apply | Clear | [Flip arc]          Save & Close | Cancel
+        bw  = 0.11
+        gap = 0.010
+
+        def _btn(x, w, label, bg, hover, fg='white'):
+            a = self.fig.add_axes([x, _BTN_Y, w, _BTN_H])
+            b = Button(a, label, color=bg, hovercolor=hover)
+            b.label.set_color(fg)
+            b.label.set_fontsize(10)
+            return b
+
+        btn_apply  = _btn(_LEFT,                   bw,     'Apply',        '#22224a', '#3333aa')
+        btn_clear  = _btn(_LEFT + bw + gap,        bw,     'Clear',        '#24354a', '#34506e')
+        self.btn_flip = _btn(_LEFT + 2*(bw+gap),   bw,     'Flip arc',     '#2a1a4a', '#4a2a7a')
+        btn_save   = _btn(_RIGHT - 2*bw - gap,     bw,     'Save & Close', '#1a3a1a', '#2a5a2a', fg='#00e676')
+        btn_cancel = _btn(_RIGHT - bw,             bw,     'Cancel',       '#3a1f1f', '#5a2a2a')
+
+        btn_apply    .on_clicked(lambda e: self._apply_coefficient())
+        btn_clear    .on_clicked(lambda e: self._clear_selection())
+        self.btn_flip.on_clicked(lambda e: self._flip_arc())
+        btn_save     .on_clicked(lambda e: self._save_and_close())
+        btn_cancel   .on_clicked(lambda e: self._cancel())
+
         self.fig.canvas.mpl_connect('button_press_event', self._on_click)
-        
         plt.show()
-        
         return self.result
-    
-    def _on_click(self, event):
-        """Handle waypoint selection - only allow 2 at a time."""
-        if event.inaxes != self.ax or event.xdata is None or event.ydata is None:
-            return
-        
-        # Ignore clicks if we already have 2 selected (force user to clear first)
-        if len(self.selected_indices) >= 2:
-            self.text_status.set_text('⚠ Segment already selected. Click "Clear" first.')
-            self.fig.canvas.draw_idle()
-            return
-        
-        # Click is in (col, row) from imshow, convert to grid (row, col)
-        col, row = int(event.xdata), int(event.ydata)
-        click_grid = np.array([row, col])
-        
-        # Find nearest waypoint in grid space
-        waypoints_grid_array = np.array(self.waypoints_grid)
-        distances = np.linalg.norm(waypoints_grid_array - click_grid, axis=1)
-        nearest_idx = np.argmin(distances)
-        
-        # Prevent selecting the same waypoint twice
-        if nearest_idx in self.selected_indices:
-            self.text_status.set_text('✗ Already selected. Choose a different waypoint.')
-            self.fig.canvas.draw_idle()
-            return
-        
-        # Add to selection
-        self.selected_indices.append(nearest_idx)
-        world_pt = self.waypoints_world[nearest_idx]
-        
-        # Update display
-        self._update_selected_display()
-        
-        # Update status
-        if len(self.selected_indices) == 1:
-            self.text_status.set_text(f'✓ Waypoint 1 selected (#{nearest_idx}). Now click waypoint 2.')
-        elif len(self.selected_indices) == 2:
-            idx1, idx2 = sorted(self.selected_indices)
-            self._show_segment(idx1, idx2)
-            self.text_status.set_text(f'✓ Segment {idx1}→{idx2} selected ({idx2-idx1+1} waypoints). Adjust slider & click Apply.')
-        
+
+    # ── Drawing ───────────────────────────────────────────────────────────────
+
+    def _draw_raceline(self):
+        wg = np.array(self.waypoints_grid)
+        for i in range(len(wg) - 1):
+            col1, row1 = wg[i,   1], wg[i,   0]
+            col2, row2 = wg[i+1, 1], wg[i+1, 0]
+            coeff = (self.speed_coeffs[i] + self.speed_coeffs[i+1]) / 2.0
+            self.ax.plot([col1, col2], [row1, row2],
+                         color=_coeff_to_color(coeff),
+                         linewidth=4, zorder=2, solid_capstyle='round')
+
+    def _redraw_raceline(self):
+        self.ax.clear()
+        self.ax.imshow(build_vis(self.occupancy_grid), origin="lower", interpolation='nearest')
+        self.ax.tick_params(colors="#888888", labelsize=8)
+        for sp in self.ax.spines.values():
+            sp.set_edgecolor("#333355")
+            sp.set_linewidth(0.5)
+        self._draw_raceline()
+
+        self.scatter_selected = self.ax.scatter(
+            [], [], c='#00ffff', s=280, marker='o',
+            edgecolors='white', linewidth=2.0, zorder=6
+        )
+        self.scatter_segment = self.ax.scatter(
+            [], [], c='#1f88ff', s=28, marker='s',
+            edgecolors='#00ccff', linewidth=0.6,
+            zorder=4, alpha=0.85
+        )
+        self.scatter_other_arc = self.ax.scatter(
+            [], [], c='#3a3a5a', s=14, marker='s',
+            edgecolors='none', linewidth=0,
+            zorder=3, alpha=0.6
+        )
+        self.ax.set_title(
+            "Speed Coefficient Editor\n"
+            "① Click waypoint 1  →  ② Click waypoint 2  →  ③ Flip arc if needed  →  ④ Adjust & Apply",
+            color="white", fontsize=11, weight='bold', pad=10
+        )
         self.fig.canvas.draw_idle()
-    
+
+    # ── Arc helpers ───────────────────────────────────────────────────────────
+
+    def _both_arcs(self):
+        """Return (active_indices, inactive_indices) given current selection and flip state."""
+        n    = len(self.waypoints_world)
+        a, b = sorted(self.selected_indices)
+        arc_a = list(range(a, b + 1))                          # direct arc
+        arc_b = list(range(b, n)) + list(range(0, a + 1))     # wrap-around arc
+        if not self.arc_flipped:
+            return arc_a, arc_b
+        else:
+            return arc_b, arc_a
+
+    def _update_arc_display(self):
+        active_idx, other_idx = self._both_arcs()
+        wg = np.array(self.waypoints_grid)
+
+        # Active arc
+        active_pts = wg[active_idx]
+        self.scatter_segment.set_offsets(active_pts[:, [1, 0]])
+
+        # Inactive arc (dim)
+        other_pts = wg[other_idx]
+        self.scatter_other_arc.set_offsets(other_pts[:, [1, 0]])
+
+        # Slider: average of active arc
+        avg = float(np.mean([self.speed_coeffs[i] for i in active_idx]))
+        self.slider_coeff.set_val(avg)
+        self._update_coeff_text()
+
+        n_active = len(active_idx)
+        n_total  = len(self.waypoints_world)
+        self._set_status(
+            f'✓ Arc: {active_idx[0]} → {active_idx[-1]}  ({n_active}/{n_total} pts)'
+            f'  |  Use "Flip arc" to switch sides  |  Adjust slider & Apply.',
+            color='#aaaaff'
+        )
+        self.fig.canvas.draw_idle()
+
+    # ── Event handlers ────────────────────────────────────────────────────────
+
+    def _on_click(self, event):
+        if event.inaxes != self.ax or event.xdata is None:
+            return
+
+        if len(self.selected_indices) >= 2:
+            self._set_status('⚠  Segment selected — click Clear to start over, or Flip arc to switch.')
+            self.fig.canvas.draw_idle()
+            return
+
+        col, row    = int(event.xdata), int(event.ydata)
+        wg          = np.array(self.waypoints_grid)
+        nearest_idx = int(np.argmin(np.linalg.norm(wg - np.array([row, col]), axis=1)))
+
+        if nearest_idx in self.selected_indices:
+            self._set_status('✗ Already selected — choose a different waypoint.')
+            self.fig.canvas.draw_idle()
+            return
+
+        self.selected_indices.append(nearest_idx)
+        self._update_selected_display()
+
+        if len(self.selected_indices) == 1:
+            self._set_status(f'✓ Waypoint #{nearest_idx} selected — now click waypoint 2.')
+        else:
+            self.arc_flipped = False
+            self._update_arc_display()
+
+        self.fig.canvas.draw_idle()
+
+    def _on_slider_changed(self, _val):
+        self._update_coeff_text()
+
+    # ── UI helpers ────────────────────────────────────────────────────────────
+
+    def _set_status(self, msg, color='#aaaacc'):
+        self.text_status.set_text(msg)
+        self.text_status.set_color(color)
+
+    def _update_coeff_text(self):
+        self.text_coeff.set_text(f'{self.slider_coeff.val:.2f}')
+
     def _update_selected_display(self):
-        """Update visual display of selected waypoints (circles)."""
         if self.selected_indices:
-            waypoints_grid_array = np.array(self.waypoints_grid)
-            selected_grid = waypoints_grid_array[self.selected_indices]
-            self.scatter_selected.set_offsets(selected_grid[:, [1, 0]])  # (col, row)
+            wg  = np.array(self.waypoints_grid)
+            sel = wg[self.selected_indices]
+            self.scatter_selected.set_offsets(sel[:, [1, 0]])
         else:
             self.scatter_selected.set_offsets(np.empty((0, 2)))
         self.fig.canvas.draw_idle()
-    
-    def _show_segment(self, idx1, idx2):
-        """Highlight selected segment with blue squares."""
-        self.current_segment = (idx1, idx2)
-        
-        # Show segment as blue squares
-        segment_grid = np.array(self.waypoints_grid[idx1:idx2+1])
-        self.scatter_segment.set_offsets(segment_grid[:, [1, 0]])  # (col, row)
-        
-        # Set slider to average coeff for segment
-        segment_coeffs = self.speed_coeffs[idx1:idx2+1]
-        avg_coeff = np.mean(segment_coeffs)
-        self.slider_coeff.set_val(avg_coeff)
-        self._update_slider_text()
-    
-    def _on_slider_changed(self, val):
-        """Update slider label (real-time)."""
-        self._update_slider_text()
-    
-    def _update_slider_text(self):
-        """Update the text display of slider value."""
-        val = self.slider_coeff.val
-        self.text_coeff.set_text(f'{val:.2f}')
-    
-    def _apply_coefficient(self):
-        """Apply current slider value to selected segment."""
-        if self.current_segment is None:
-            self.text_status.set_text('⚠ No segment selected. Select two waypoints first.')
+
+    # ── Actions ───────────────────────────────────────────────────────────────
+
+    def _flip_arc(self):
+        """Toggle between the two arcs defined by the two selected endpoints."""
+        if len(self.selected_indices) < 2:
+            self._set_status('⚠  Select two waypoints first, then flip.')
             self.fig.canvas.draw_idle()
             return
-        
-        idx1, idx2 = self.current_segment
+        self.arc_flipped = not self.arc_flipped
+        self._update_arc_display()
+
+    def _apply_coefficient(self):
+        if len(self.selected_indices) < 2:
+            self._set_status('⚠  No segment selected — click two waypoints first.')
+            self.fig.canvas.draw_idle()
+            return
+
+        active_idx, _ = self._both_arcs()
         coeff = self.slider_coeff.val
-        
-        for i in range(idx1, idx2 + 1):
+        for i in active_idx:
             self.speed_coeffs[i] = coeff
-        
-        print(f"[SpeedCoefficientEditor] Applied coeff={coeff:.2f} to segment {idx1}→{idx2}")
-        
-        # Redraw raceline with new colors
+        print(f"[SpeedCoefficientEditor] Applied ×{coeff:.2f} to {len(active_idx)} waypoints")
+
         self._redraw_raceline()
-        
-        # Update status
-        self.text_status.set_text(f'✓ Applied {coeff:.2f} to segment {idx1}→{idx2}. Select next segment or Save.')
-        
-        # Clear selection
+        self._set_status(
+            f'✓ Applied ×{coeff:.2f} to {len(active_idx)} pts.  Select next segment or Save.',
+            color='#69f0ae'
+        )
         self._clear_selection()
-    
-    def _redraw_raceline(self):
-        """Redraw entire raceline with current speed coefficients."""
-        self.ax.clear()
-        
-        # Re-display map
-        vis = build_vis(self.occupancy_grid)
-        self.ax.imshow(vis, origin="lower", cmap='gray', interpolation='nearest')
-        self.ax.tick_params(colors="#666666", labelsize=8)
-        for spine in self.ax.spines.values():
-            spine.set_edgecolor("#333333")
-            spine.set_linewidth(0.5)
-        
-        # Redraw raceline
-        waypoints_grid_array = np.array(self.waypoints_grid)
-        colors_palette = [
-            '#ff3333', '#ff6600', '#ffaa00', '#ffdd00', '#aaee00', '#44dd00', '#00cc00'
-        ]
-        
-        for i in range(len(waypoints_grid_array) - 1):
-            col1, row1 = waypoints_grid_array[i, 1], waypoints_grid_array[i, 0]
-            col2, row2 = waypoints_grid_array[i+1, 1], waypoints_grid_array[i+1, 0]
-            
-            coeff = (self.speed_coeffs[i] + self.speed_coeffs[i+1]) / 2.0
-            coeff = np.clip(coeff, 0, 3.0)
-            color_idx = int((coeff / 3.0) * (len(colors_palette) - 1))
-            color = colors_palette[color_idx]
-            
-            self.ax.plot([col1, col2], [row1, row2], color=color, linewidth=4, zorder=2, solid_capstyle='round')
-        
-        # Recreate scatters
-        self.scatter_selected = self.ax.scatter(
-            [], [], c='#00ffff', s=400, marker='o', edgecolors='white', linewidth=2.5, zorder=5
-        )
-        self.scatter_segment = self.ax.scatter(
-            [], [], c='#1f88ff', s=350, marker='s', edgecolors='#00ffff', linewidth=2, zorder=4, alpha=0.7
-        )
-        
-        # Title
-        title_text = (
-            "Speed Coefficient Editor\n"
-            "① Click waypoint 1  →  ② Click waypoint 2  →  ③ Adjust slider  →  ④ Click 'Apply'\n"
-            "Color: Red (slow) → Orange → Yellow → Green (fast)  |  Range: 0.0 – 3.0"
-        )
-        self.ax.set_title(title_text, color="#e0e0e0", fontsize=11, weight='bold', pad=15)
-        self.ax.legend(loc='upper left', fontsize=9, facecolor='#1a1a2e', edgecolor='#444444')
-        
-        self.fig.canvas.draw_idle()
-    
+
     def _clear_selection(self):
-        """Clear current selection."""
         self.selected_indices = []
-        self.current_segment = None
-        self.scatter_selected.set_offsets(np.empty((0, 2)))
-        self.scatter_segment.set_offsets(np.empty((0, 2)))
+        self.current_segment  = None
+        self.arc_flipped      = False
+        self.scatter_selected .set_offsets(np.empty((0, 2)))
+        self.scatter_segment  .set_offsets(np.empty((0, 2)))
+        self.scatter_other_arc.set_offsets(np.empty((0, 2)))
         self.slider_coeff.set_val(1.0)
-        self._update_slider_text()
-        self.text_status.set_text('Ready: Select two waypoints')
+        self._update_coeff_text()
+        self._set_status('Ready — click two waypoints to select a segment')
         self.fig.canvas.draw_idle()
-    
+
     def _save_and_close(self):
-        """Save coefficients and close."""
         if self._save_waypoints():
-            print("[SpeedCoefficientEditor] Changes saved successfully.")
             self.result = True
             plt.close(self.fig)
-        else:
-            print("[SpeedCoefficientEditor] Failed to save.")
-    
+
     def _cancel(self):
-        """Close without saving."""
         self.result = False
         plt.close(self.fig)
 
 
+# ── Public API ────────────────────────────────────────────────────────────────
+
 def edit_speed_coefficients(occupancy_grid, waypoints_path, map_data=None):
-    """
-    Convenience function to launch speed coefficient editor.
-    
-    Returns
-    -------
-    bool
-        True if saved, False if cancelled.
-    """
-    editor = SpeedCoefficientEditor(occupancy_grid, waypoints_path, map_data)
-    return editor.edit()
+    """Launch the speed coefficient editor. Returns True if saved, False if cancelled."""
+    return SpeedCoefficientEditor(occupancy_grid, waypoints_path, map_data).edit()
