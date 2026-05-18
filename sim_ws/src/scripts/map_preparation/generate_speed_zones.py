@@ -39,7 +39,6 @@ def save_speed_zones_csv(polygons_grid, origin, resolution, height, output_no_ex
                 x, y = grid_to_world((row, col), origin, resolution, height)
                 writer.writerow([p_idx, v_idx, x, y, max_speed])
 
-
 def run():
     # Map files
     map_folder: str = "slam_maps"
