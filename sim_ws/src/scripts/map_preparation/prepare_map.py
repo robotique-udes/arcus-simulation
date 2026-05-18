@@ -4,6 +4,7 @@ import sys
 import threading
 import tkinter as tk
 from tkinter import messagebox
+import numpy as np
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +38,7 @@ class PrepareMapApp:
             ("Generate raceline", self._run_generate_raceline),
             ("Generate speed zones", self._run_generate_speed_zones),
             ("Generate algo zones", self._run_generate_algo_zones),
+            ("Edit speed coefficients", self._edit_speed_coefficients),
             ("Export raceline", self._run_export_raceline),
             ("Export speed zones", self._run_export_speed_zones),
             ("Export algos", self._run_export_algos),
@@ -125,6 +127,8 @@ class PrepareMapApp:
         script = os.path.join("utils", "exportAlgos.sh")
         self._run_command_async("Export algos", ["bash", script])
 
+    def _edit_speed_coefficients(self):
+        self._run_command_async("Edit speed coefficients", [sys.executable, "edit_speed_coefficients.py"])
 
 def main():
     root = tk.Tk()
