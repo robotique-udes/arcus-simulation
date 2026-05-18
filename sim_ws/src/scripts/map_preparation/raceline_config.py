@@ -18,20 +18,20 @@ class RacelineConfig:
     safety_weight: float = 100
     turn_weight: float = 0.0
 
-    # Raceline mode: "astar", "min_curvature" or "manual_spline"
-    raceline_mode: str = "astar"
+    # Raceline mode: "astar", "astar_no_min_curvature", "min_curvature" or "manual_spline"
+    raceline_mode: str = "astar_no_min_curvature"
 
     # Manual spline settings
     manual_spline_smoothing: float = 8.0
     manual_spline_points: int = 1200
 
     # A* smoothing factor
-    smoothing_factor: float = 5000.0
+    smoothing_factor: float = 8000.0
 
     # Optional post-A* drag editor
     enable_drag_edit: bool = True
     drag_handle_stride: int = 5
-    drag_smoothing_factor: float = 1500.0
+    drag_smoothing_factor: float = 4000.0
     drag_adaptive_handles: bool = True
     drag_curvature_handle_ratio: float = 0.12
     drag_min_handle_spacing: int = 8

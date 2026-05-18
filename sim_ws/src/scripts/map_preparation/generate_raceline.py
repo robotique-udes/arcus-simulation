@@ -86,7 +86,7 @@ def run():
     start_pos = world_to_grid(cfg.start_world, origin, res, height)
     print(f"Default start position (grid): row={start_pos[0]}, col={start_pos[1]}")
 
-    if cfg.raceline_mode == "astar":
+    if cfg.raceline_mode in ("astar", "astar_no_min_curvature"):
         print("\nOpening map window.")
         print("  Left-click       : place intermediate checkpoints around the track")
         print("  Right-click      : undo the last checkpoint")
@@ -202,35 +202,36 @@ def run():
                 else:
                     print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
 
-            min_curv_raceline, alpha, normals, w_left, w_right = (
-                solve_min_curvature_from_raceline(
-                    smooth_raceline,
-                    occupancy_grid,
-                    res,
-                    vehicle_width=cfg.vehicle_width,
-                    smoothness_weight=1e-4,
-                    debug=cfg.debug_min_curvature,
+            if cfg.raceline_mode == "astar":
+                min_curv_raceline, alpha, normals, w_left, w_right = (
+                    solve_min_curvature_from_raceline(
+                        smooth_raceline,
+                        occupancy_grid,
+                        res,
+                        vehicle_width=cfg.vehicle_width,
+                        smoothness_weight=1e-4,
+                        debug=cfg.debug_min_curvature,
+                    )
                 )
-            )
 
-            if normals is not None:
-                plot_raceline_result(
-                    occupancy_grid,
-                    smooth_raceline,
+                if normals is not None:
+                    plot_raceline_result(
+                        occupancy_grid,
+                        smooth_raceline,
+                        min_curv_raceline,
+                        normals,
+                        w_left,
+                        w_right,
+                        res,
+                        title="Min Curvature (from A*)",
+                    )
+
+                smooth_raceline = smooth_path(
                     min_curv_raceline,
-                    normals,
-                    w_left,
-                    w_right,
-                    res,
-                    title="Min Curvature (from A*)",
+                    smoothing_factor=cfg.min_curv_smoothing_factor,
+                    num_points=len(min_curv_raceline),
+                    closed=True,
                 )
-
-            smooth_raceline = smooth_path(
-                min_curv_raceline,
-                smoothing_factor=cfg.min_curv_smoothing_factor,
-                num_points=len(min_curv_raceline),
-                closed=True,
-            )
 
     elif cfg.raceline_mode == "min_curvature":
         center = tune_centerline(occupancy_grid)
@@ -366,7 +367,7 @@ def run():
     else:
         raise ValueError(
             f"Unknown RACELINE_MODE '{cfg.raceline_mode}'. Use 'astar', "
-            "'min_curvature' or 'manual_spline'."
+            "'astar_no_min_curvature', 'min_curvature' or 'manual_spline'."
         )
 
     path_csv = os.path.join(cfg.csv_folder, cfg.csv_name)
