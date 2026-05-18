@@ -493,7 +493,7 @@ def solve_min_curvature_raceline(
     w_left,
     w_right,
     resolution=1.0,
-    smoothness_weight=1e-4,
+    smoothness_weight=1e-3,
 ):
     p = np.array(centerline, dtype=float)   # (N, 2) in pixels
     n = np.array(normals, dtype=float)      # (N, 2) unit vectors in pixel frame
