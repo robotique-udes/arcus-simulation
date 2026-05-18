@@ -3,30 +3,197 @@ import matplotlib.pyplot as plt
 from utils.constants import FREE
 import cvxpy as cp
 from scipy.spatial import KDTree
+import networkx as nx
 
-def order_centerline(points):
-    pts = np.array(points)
-    visited = set()
 
-    # Build KDTree for nearest neighbors
+# ---------------------------------------------------------
+# GRAPH-BASED CENTERLINE ORDERING
+# ---------------------------------------------------------
+
+def _build_skeleton_graph(points: np.ndarray) -> nx.Graph:
+    """
+    Connect skeleton pixels into a graph by linking each point to its
+    8-connected neighbors that also exist in the point set.
+    """
+    G = nx.Graph()
+    G.add_nodes_from(range(len(points)))
+
+    index_map = {(int(r), int(c)): i for i, (r, c) in enumerate(points)}
+
+    for i, (r, c) in enumerate(points):
+        for dr in (-1, 0, 1):
+            for dc in (-1, 0, 1):
+                if dr == 0 and dc == 0:
+                    continue
+                nb = (r + dr, c + dc)
+                if nb in index_map:
+                    j = index_map[nb]
+                    if i < j:
+                        dist = np.hypot(dr, dc)
+                        G.add_edge(i, j, weight=dist)
+
+    return G
+
+
+def _find_junction_nodes(G: nx.Graph) -> list:
+    """Nodes with degree >= 3 are branch points / junctions."""
+    return [n for n, d in G.degree() if d >= 3]
+
+
+def _snap_anchor_indices(points: np.ndarray, anchor_points) -> list:
+    """Map user-provided anchor points to the nearest skeleton nodes."""
+    if anchor_points is None:
+        return []
+
+    pts = np.array(points, dtype=float)
+    if len(pts) == 0:
+        return []
+
     tree = KDTree(pts)
+    indices = []
 
-    ordered = []
-    current_idx = 0
-    ordered.append(tuple(pts[current_idx]))
-    visited.add(current_idx)
+    for anchor in anchor_points:
+        if anchor is None:
+            continue
 
-    for _ in range(len(pts) - 1):
-        dists, idxs = tree.query(pts[current_idx], k=8)
+        if np.isscalar(anchor):
+            idx = int(anchor)
+        else:
+            _, idx = tree.query(np.array(anchor, dtype=float))
+            idx = int(idx)
 
-        for i in idxs:
-            if i not in visited:
-                visited.add(i)
-                ordered.append(tuple(pts[i]))
-                current_idx = i
-                break
+        if not indices or idx != indices[-1]:
+            indices.append(idx)
+
+    return indices
+
+
+def _path_from_anchor_indices(G: nx.Graph, anchor_indices: list) -> list:
+    """Build an ordered closed path by stitching shortest paths between anchors."""
+    if len(anchor_indices) < 2:
+        return []
+
+    ordered = [anchor_indices[0]]
+
+    for start, end in zip(anchor_indices, anchor_indices[1:]):
+        segment = nx.shortest_path(G, start, end, weight="weight")
+        if ordered[-1] == segment[0]:
+            ordered.extend(segment[1:])
+        else:
+            ordered.extend(segment)
+
+    if ordered[-1] != ordered[0]:
+        closing_segment = nx.shortest_path(G, ordered[-1], ordered[0], weight="weight")
+        ordered.extend(closing_segment[1:])
 
     return ordered
+
+
+def _remove_spurs(G: nx.Graph, min_spur_length: int = 20) -> nx.Graph:
+    """
+    Iteratively prune dead-end branches shorter than min_spur_length edges.
+    This is the graph equivalent of skeleton pruning.
+    """
+    G = G.copy()
+    changed = True
+    while changed:
+        changed = False
+        endpoints = [n for n, d in G.degree() if d == 1]
+        for ep in endpoints:
+            branch = [ep]
+            prev = None
+            current = ep
+            for _ in range(min_spur_length):
+                nbs = [n for n in G.neighbors(current) if n != prev]
+                if len(nbs) != 1:
+                    break
+                prev = current
+                current = nbs[0]
+                branch.append(current)
+
+            if len(branch) < min_spur_length:
+                for node in branch[:-1]:
+                    if G.has_node(node):
+                        G.remove_node(node)
+                changed = True
+
+    return G
+
+
+def order_centerline(points, min_spur_length: int = 20, anchor_points=None) -> list:
+    """
+    Order centerline points by tracing the skeleton as a graph.
+
+    Handles tracks with multiple loops (e.g. a main loop + hairpin) by:
+      1. Building a pixel-connectivity graph from skeleton points
+      2. Pruning short spur branches
+    3. Tracing via DFS from a junction node to visit all branches
+    4. Optionally following a user-selected route through the skeleton
+
+    Parameters
+    ----------
+    points         : array-like (N, 2)  row-col skeleton pixels
+    min_spur_length: int  prune branches shorter than this many pixels
+    anchor_points   : optional ordered list of (row, col) points that define
+                      the general route to follow through the skeleton
+
+    Returns
+    -------
+    list of (row, col) tuples in traversal order
+    """
+    pts = np.array(points, dtype=int)
+    if len(pts) == 0:
+        return []
+
+    G = _build_skeleton_graph(pts)
+
+    # Keep only the largest connected component
+    largest_cc = max(nx.connected_components(G), key=len)
+    G = G.subgraph(largest_cc).copy()
+
+    # Prune spurs
+    G = _remove_spurs(G, min_spur_length=min_spur_length)
+
+    if len(G.nodes) == 0:
+        return list(map(tuple, pts))
+
+    # Keep largest component again after pruning
+    largest_cc = max(nx.connected_components(G), key=len)
+    G = G.subgraph(largest_cc).copy()
+
+    junctions = _find_junction_nodes(G)
+
+    anchor_indices = _snap_anchor_indices(pts, anchor_points)
+    if len(anchor_indices) >= 2:
+        try:
+            path = _path_from_anchor_indices(G, anchor_indices)
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            path = []
+
+        if path:
+            return [tuple(pts[i]) for i in path]
+
+    if not junctions:
+        # Simple loop or chain — DFS from a degree-1 endpoint or any node
+        endpoints = [n for n, d in G.degree() if d == 1]
+        start = endpoints[0] if endpoints else list(G.nodes)[0]
+        path = list(nx.dfs_preorder_nodes(G, source=start))
+    else:
+        # Track has branches (hairpin, chicane, etc.)
+        # Try a few junction starts and keep the one that visits the most nodes
+        best_path = []
+        for start in junctions[:3]:
+            path = list(nx.dfs_preorder_nodes(G, source=start))
+            if len(path) > len(best_path):
+                best_path = path
+        path = best_path
+
+    return [tuple(pts[i]) for i in path]
+
+
+# ---------------------------------------------------------
+# PATH PROCESSING
+# ---------------------------------------------------------
 
 def resample_path(path, num_points=500):
     pts = np.array(path, dtype=float)
@@ -45,6 +212,7 @@ def resample_path(path, num_points=500):
         new_pts[:, i] = np.interp(s_uniform, s, pts[:, i])
 
     return [tuple(p) for p in new_pts]
+
 
 def compute_normals(path):
     pts = np.array(path, dtype=float)
@@ -67,6 +235,11 @@ def compute_normals(path):
         normals[i] = np.array([-tangent[1], tangent[0]])
 
     return normals
+
+
+# ---------------------------------------------------------
+# TRACK WIDTH RAYCASTING
+# ---------------------------------------------------------
 
 def compute_track_widths(
     smooth_raceline,
@@ -98,7 +271,6 @@ def compute_track_widths(
     for i, (r, c) in enumerate(smooth_raceline):
         dr, dc = normals[i]
 
-        # normalize safety (avoid drift issues)
         norm = np.hypot(dr, dc)
         if norm < 1e-9:
             continue
@@ -146,6 +318,11 @@ def compute_track_widths(
 
     return w_left_safe, w_right_safe
 
+
+# ---------------------------------------------------------
+# DEBUG / VISUALIZATION
+# ---------------------------------------------------------
+
 def debug_show_centerline_pipeline(
     occupancy_grid,
     center_pts,
@@ -164,22 +341,16 @@ def debug_show_centerline_pipeline(
         plt.plot(pts[:, 1], pts[:, 0], color=color, lw=lw, label=label)
         plt.scatter(pts[:, 1], pts[:, 0], c=color, s=s)
 
-    # Raw unordered centerline
-    plot_path(center_pts, "red", "raw centerline", lw=0.5, s=2)
-
-    # Ordered
-    plot_path(ordered, "orange", "ordered", lw=1)
-
-    # Resampled
-    plot_path(resampled, "yellow", "resampled", lw=1)
-
-    # Final smooth
-    plot_path(smooth, "cyan", "smooth", lw=2.5, s=0)
+    plot_path(center_pts, "red",    "raw centerline", lw=0.5, s=2)
+    plot_path(ordered,    "orange", "ordered",        lw=1)
+    plot_path(resampled,  "yellow", "resampled",      lw=1)
+    plot_path(smooth,     "cyan",   "smooth",         lw=2.5, s=0)
 
     plt.legend()
     plt.title("Centerline → Smooth Pipeline")
     plt.gca().invert_yaxis()
     plt.show()
+
 
 def plot_widths_simple(
     smooth_raceline,
@@ -201,15 +372,12 @@ def plot_widths_simple(
         r, c = pts[i]
         dr, dc = normals[i]
 
-        # convert METRES → PIXELS
         L = w_left[i] / resolution
         R = w_right[i] / resolution
 
-        # LEFT
         rL = r - dr * L
         cL = c - dc * L
 
-        # RIGHT
         rR = r + dr * R
         cR = c + dc * R
 
@@ -219,6 +387,7 @@ def plot_widths_simple(
     plt.axis("equal")
     plt.title("Track widths (fixed frame consistency)")
     plt.show()
+
 
 def debug_plot_normals(occupancy_grid, path, normals, stride=1, scale=10):
     """
@@ -239,18 +408,15 @@ def debug_plot_normals(occupancy_grid, path, normals, stride=1, scale=10):
     plt.figure(figsize=(10, 10))
     plt.imshow(occupancy_grid, cmap="gray", vmin=0, vmax=100, origin="upper")
 
-    # plot centerline
     plt.plot(pts[:, 1], pts[:, 0], 'cyan', linewidth=2, label="centerline")
 
-    # subsample for readability
     idx = np.arange(0, len(pts), stride)
 
-    # arrows (note: col = x, row = y)
     plt.quiver(
-        pts[idx, 1],            # x (col)
-        pts[idx, 0],            # y (row)
-        norms[idx, 1] * scale,  # dx
-        norms[idx, 0] * scale,  # dy
+        pts[idx, 1],
+        pts[idx, 0],
+        norms[idx, 1] * scale,
+        norms[idx, 0] * scale,
         color='red',
         angles='xy',
         scale_units='xy',
@@ -262,6 +428,64 @@ def debug_plot_normals(occupancy_grid, path, normals, stride=1, scale=10):
     plt.legend()
     plt.gca().invert_yaxis()
     plt.show()
+
+
+def debug_plot_solver_inputs(
+    occupancy_grid,
+    centerline,
+    normals,
+    w_left,
+    w_right,
+    resolution,
+    stride=5,
+):
+    """
+    Debug plot to verify:
+    - normals are correct
+    - widths are correct
+    - units are consistent
+
+    Must be called RIGHT before solver.
+    """
+
+    pts = np.array(centerline)
+    normals = np.array(normals)
+
+    wL = w_left / resolution
+    wR = w_right / resolution
+
+    plt.figure(figsize=(10, 10))
+    plt.imshow(occupancy_grid, cmap="gray", origin="upper")
+
+    plt.plot(pts[:, 1], pts[:, 0], "b-", linewidth=1, label="centerline")
+
+    for i in range(0, len(pts), stride):
+        r, c = pts[i]
+        dr, dc = normals[i]
+
+        left_pt  = (r - dr * wL[i], c - dc * wL[i])
+        right_pt = (r + dr * wR[i], c + dc * wR[i])
+
+        plt.plot(
+            [left_pt[1], right_pt[1]],
+            [left_pt[0], right_pt[0]],
+            "yellow",
+            linewidth=1.5,
+            alpha=0.7
+        )
+
+        plt.scatter(left_pt[1],  left_pt[0],  c="green", s=10)
+        plt.scatter(right_pt[1], right_pt[0], c="red",   s=10)
+
+    plt.title("Solver Input Debug (Widths + Normals)")
+    plt.legend()
+    plt.axis("equal")
+    plt.show()
+
+
+# ---------------------------------------------------------
+# MIN-CURVATURE SOLVER
+# ---------------------------------------------------------
 
 def solve_min_curvature_raceline(
     centerline,
@@ -308,7 +532,7 @@ def solve_min_curvature_raceline(
     solver_attempts = [
         (cp.ECOS, dict(verbose=False, max_iters=2000, abstol=1e-7, reltol=1e-7)),
         (cp.OSQP, dict(verbose=False, max_iter=10000, eps_abs=1e-6, eps_rel=1e-6)),
-        (cp.SCS, dict(verbose=False, max_iters=2500, eps=1e-5)),
+        (cp.SCS,  dict(verbose=False, max_iters=2500,  eps=1e-5)),
     ]
 
     solved = False
@@ -333,6 +557,7 @@ def solve_min_curvature_raceline(
 
     return raceline_px, alpha.value
 
+
 def plot_raceline_result(
     occupancy_grid,
     centerline,
@@ -356,13 +581,9 @@ def plot_raceline_result(
     cl = np.array(centerline)
     rl = np.array(raceline)
 
-    # centerline
     plt.plot(cl[:, 1], cl[:, 0], "b-", linewidth=1, label="Centerline")
-
-    # raceline
     plt.plot(rl[:, 1], rl[:, 0], "r-", linewidth=2, label="Raceline")
 
-    # optional: width visualization (light debugging)
     if normals is not None and w_left is not None and w_right is not None:
         n = np.array(normals)
 
@@ -381,62 +602,6 @@ def plot_raceline_result(
     plt.axis("equal")
     plt.show()
 
-def debug_plot_solver_inputs(
-    occupancy_grid,
-    centerline,
-    normals,
-    w_left,
-    w_right,
-    resolution,
-    stride=5,
-):
-    """
-    Debug plot to verify:
-    - normals are correct
-    - widths are correct
-    - units are consistent
-
-    Must be called RIGHT before solver.
-    """
-
-    pts = np.array(centerline)
-    normals = np.array(normals)
-
-    # Convert widths to pixels if needed
-    wL = w_left / resolution
-    wR = w_right / resolution
-
-    plt.figure(figsize=(10, 10))
-    plt.imshow(occupancy_grid, cmap="gray", origin="upper")
-
-    # centerline
-    plt.plot(pts[:, 1], pts[:, 0], "b-", linewidth=1, label="centerline")
-
-    for i in range(0, len(pts), stride):
-        r, c = pts[i]
-        dr, dc = normals[i]
-
-        # endpoints
-        left_pt  = (r - dr * wL[i], c - dc * wL[i])
-        right_pt = (r + dr * wR[i], c + dc * wR[i])
-
-        # draw full width segment
-        plt.plot(
-            [left_pt[1], right_pt[1]],
-            [left_pt[0], right_pt[0]],
-            "yellow",
-            linewidth=1.5,
-            alpha=0.7
-        )
-
-        # optional: mark endpoints
-        plt.scatter(left_pt[1], left_pt[0], c="green", s=10)
-        plt.scatter(right_pt[1], right_pt[0], c="red", s=10)
-
-    plt.title("Solver Input Debug (Widths + Normals)")
-    plt.legend()
-    plt.axis("equal")
-    plt.show()
 
 def solve_min_curvature_from_raceline(
     raceline,

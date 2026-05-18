@@ -19,7 +19,7 @@ class RacelineConfig:
     turn_weight: float = 0.0
 
     # Raceline mode: "astar", "astar_no_min_curvature", "min_curvature" or "manual_spline"
-    raceline_mode: str = "astar_no_min_curvature"
+    raceline_mode: str = "min_curvature"
 
     # Manual spline settings
     manual_spline_smoothing: float = 8.0
@@ -30,7 +30,7 @@ class RacelineConfig:
 
     # Optional post-A* drag editor
     enable_drag_edit: bool = True
-    drag_handle_stride: int = 5
+    drag_handle_stride: int = 2
     drag_smoothing_factor: float = 4000.0
     drag_adaptive_handles: bool = True
     drag_curvature_handle_ratio: float = 0.12
@@ -41,7 +41,7 @@ class RacelineConfig:
     drag_max_redraw_hz: float = 24.0
 
     debug_min_curvature: bool = False
-    vehicle_width: float = 0.3  # metres
+    vehicle_width: float = 0.2  # metres
     min_curv_smoothing_factor: float = 1000.0
 
 

@@ -33,7 +33,7 @@ from utils.min_curvature import (
     solve_min_curvature_raceline,
     solve_min_curvature_from_raceline,
 )
-from utils.ui_centerline import tune_centerline
+from utils.ui_centerline import pick_centerline_route, tune_centerline
 from utils.planning import brushfire_algo, plan_full_path
 from utils.ui_raceline_editor import edit_raceline_with_drag
 from raceline_config import DEFAULT_CONFIG
@@ -236,7 +236,8 @@ def run():
     elif cfg.raceline_mode == "min_curvature":
         center = tune_centerline(occupancy_grid)
 
-        ordered = order_centerline(center)
+        route_anchors = pick_centerline_route(occupancy_grid, center)
+        ordered = order_centerline(center, anchor_points=route_anchors)
 
         resampled = resample_path(ordered, 500)
 
@@ -317,29 +318,6 @@ def run():
             num_points=len(min_curv_raceline),
             closed=True
         )
-
-        if cfg.enable_drag_edit:
-            print("\nOpening drag editor for post-min_curvature raceline tuning...")
-            edited = edit_raceline_with_drag(
-                occupancy_grid,
-                smooth_raceline,
-                handle_stride=cfg.drag_handle_stride,
-                smoothing_factor=cfg.drag_smoothing_factor,
-                lock_start=True,
-                adaptive_handles=cfg.drag_adaptive_handles,
-                curvature_handle_ratio=cfg.drag_curvature_handle_ratio,
-                min_handle_spacing=cfg.drag_min_handle_spacing,
-                drag_influence_radius=cfg.drag_influence_radius,
-                drag_preview_points=cfg.drag_preview_points,
-                final_preview_points=cfg.drag_final_preview_points,
-                max_redraw_hz=cfg.drag_max_redraw_hz,
-            )
-            if edited is not None:
-                smooth_raceline = edited
-                print(f"Edited raceline confirmed: {len(smooth_raceline)} waypoints")
-            else:
-                print("Drag edit cancelled. Keeping pre-edit smoothed raceline.")
-
 
     elif cfg.raceline_mode == "manual_spline":
         print("\nOpening manual spline window.")
