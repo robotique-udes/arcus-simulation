@@ -1,7 +1,10 @@
-image: kingston_map.pgm
+image: slam_map_20260518_025105_clean.pgm
 mode: trinary
 resolution: 0.03
-origin: [-7.43, -4.05, 0]
+origin:
+- -7.54
+- -8.78
+- 0
 negate: 0
 occupied_thresh: 0.65
 free_thresh: 0.25
