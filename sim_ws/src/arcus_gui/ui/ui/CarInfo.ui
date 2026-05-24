@@ -62,7 +62,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Info 1... : </string>
+          <string>Risk : </string>
          </property>
         </widget>
        </item>
@@ -218,7 +218,7 @@
           </font>
          </property>
          <property name="text">
-          <string>Info 2... :</string>
+          <string/>
          </property>
         </widget>
        </item>
@@ -248,7 +248,7 @@
           </sizepolicy>
          </property>
          <property name="text">
-          <string>Info 3... :</string>
+          <string/>
          </property>
         </widget>
        </item>
