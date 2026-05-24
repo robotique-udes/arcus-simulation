@@ -3,6 +3,7 @@
 
 #include "UI_CarInfo.h"
 #include "nav_msgs/msg/odometry.hpp"
+#include "std_msgs/msg/float32.hpp"
 #include "ackermann_msgs/msg/ackermann_drive_stamped.hpp"
 
 #include <rclcpp/rclcpp.hpp>
@@ -14,6 +15,7 @@ class QCarInfoWidget : public QWidget
 
     static constexpr const char* TOPIC_ODOM = "/odometry/filtered";
     static constexpr const char* DRIVE_TOPIC = "/drive";
+    static constexpr const char* RISK_TOPIC = "/pure_pursuit/trajectory_risk";
     static constexpr const float pi = 3.14159265359;
 
 
@@ -24,10 +26,12 @@ class QCarInfoWidget : public QWidget
   signals:
     void updateSpeedIU(float speed_);
     void updateAngleIU(float angle_);
+    void updateRiskIU(float risk_);
     
   private slots:
     void onUpdateAngleUI(float angle_);
     void onUpdateSpeedUI(float speed_);
+    void onUpdateRiskUI(float risk_);
 
   private:
 
@@ -39,9 +43,13 @@ class QCarInfoWidget : public QWidget
 
     void CB_driver(ackermann_msgs::msg::AckermannDriveStamped& msg_);
 
+    void CB_risk(std_msgs::msg::Float32& msg_);
+
     std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> _sub_odom;
 
     std::shared_ptr<rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>> _sub_acker;
+
+    std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Float32>> _sub_risk;
 
     std::shared_ptr<rclcpp::Node> _node;
 
