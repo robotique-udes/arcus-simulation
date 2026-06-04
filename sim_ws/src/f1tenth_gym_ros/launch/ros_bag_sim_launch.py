@@ -32,26 +32,11 @@ def generate_launch_description():
     map_path = config_dict['bridge']['ros__parameters']['map_path'] + '.yaml'
 
     # === Nodes ===
-    bridge_node = Node(
-        package='f1tenth_gym_ros',
-        executable='gym_bridge',
-        name='bridge',
-        parameters=[config]
-    )
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz',
         arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge.rviz'), '--ros-args', '--log-level', 'warn']
-    )
-    map_server_node = Node(
-        package='nav2_map_server',
-        executable='map_server',
-        parameters=[{'yaml_filename': map_path},
-                    {'topic': 'map'},
-                    {'frame_id': 'map'},
-                    {'output': 'screen'},
-                    {'use_sim_time': True}]
     )
     ego_robot_publisher = Node(
         package='robot_state_publisher',
@@ -62,8 +47,6 @@ def generate_launch_description():
     )
     # === Finalize ===
     ld.add_action(rviz_node)
-    ld.add_action(bridge_node)
-    ld.add_action(map_server_node)
     ld.add_action(ego_robot_publisher)
    
     return ld
