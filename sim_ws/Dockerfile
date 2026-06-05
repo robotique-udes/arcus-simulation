@@ -58,13 +58,13 @@ RUN apt-get update --fix-missing && \
     iputils-ping \
     libnss-mdns
 
-RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
-
-RUN echo -e "b() { \n    source /opt/ros/humble/setup.bash\n    cd /sim_ws || exit \n   colcon build "$@" --packages-ignore range_libc particle_filter --symlink-install\n    source install/local_setup.bash\n   \n}" >> ~/.bashrc
 
 # Fix for 'no module name 'numba' with docker compose 2.40
 RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow "matplotlib<=3.8" "cvxpy==1.4" "scikit-image<0.20"
 
+RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
+
+RUN echo -e "b() { \n    source /opt/ros/humble/setup.bash\n    cd /sim_ws || exit \n   colcon build --packages-select range_libc --cmake-args -DWITH_CUDA=OFF \n colcon build --packages-select particle_filter --cmake-args -DWITH_CUDA=OFF \n colcon build "$@" --symlink-install\n    source install/local_setup.bash\n   \n}" >> ~/.bashrc
 
 # -----------------------------
 # Setup entrypoint
