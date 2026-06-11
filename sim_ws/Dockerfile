@@ -51,6 +51,7 @@ RUN apt-get update --fix-missing && \
     ros-humble-joy-teleop \
     ros-humble-joy \
     ros-humble-rmw-cyclonedds-cpp \
+    ros-humble-joint-state-publisher \
     x11-apps \
     x11-apps xterm \
     clang-format \

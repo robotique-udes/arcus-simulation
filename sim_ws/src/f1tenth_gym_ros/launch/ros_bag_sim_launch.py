@@ -36,18 +36,29 @@ def generate_launch_description():
         package='rviz2',
         executable='rviz2',
         name='rviz',
-        arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge.rviz'), '--ros-args', '--log-level', 'warn']
+        arguments=['-d', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'gym_bridge.rviz'), '--ros-args', '--log-level', 'warn'],
+        parameters=[{'use_sim_time': True}]
     )
     ego_robot_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='ego_robot_state_publisher',
-        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'ego_racecar.xacro')])}],
+        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'ego_racecar.xacro')])},
+                    {'use_sim_time': True}],
         remappings=[('/robot_description', 'ego_robot_description')]
     )
+
+    joint_state_publisher_node = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        parameters=[{'use_sim_time': True}],
+        remappings=[('/robot_description', 'ego_robot_description')]
+    )   
     # === Finalize ===
     ld.add_action(rviz_node)
     ld.add_action(ego_robot_publisher)
+    ld.add_action(joint_state_publisher_node)
    
     return ld
 # Note: If both simulated_localization and run_slam are true, only SLAM will run.
