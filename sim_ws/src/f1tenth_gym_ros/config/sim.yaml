@@ -42,7 +42,7 @@ bridge:
     scan_beams: 1079
 
     # map parameters
-    map_path: '/sim_ws/src/arcus/slam_map_saver/slam_maps/kingston_map'
+    map_path: '/sim_ws/src/scripts/map_preparation/slam_maps/slam_map_19700101_015340'
     slam_maps_dir: '/sim_ws/src/arcus/slam_map_saver/slam_maps'
     map_img_ext: '.pgm'
 
