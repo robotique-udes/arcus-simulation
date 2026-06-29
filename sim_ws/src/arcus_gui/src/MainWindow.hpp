@@ -39,6 +39,10 @@ class MainWindow : public QMainWindow
     QMapRacelineHelpers _mapRacelineHelpers;
     QPurePursuitWidget _purePursuitWidget;
     QGapFollowWidget _gapFollowWidget;
+
+    QPushButton* _globalSaveButton;
+    std::shared_ptr<rclcpp::Node> _node;
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr _paramSaverClient;
 };
 
 #endif  // MAIN_WINDOWS_HPP
