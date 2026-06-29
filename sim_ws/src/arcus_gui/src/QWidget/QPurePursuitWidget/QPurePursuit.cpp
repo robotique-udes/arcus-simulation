@@ -20,3 +20,17 @@ QPurePursuitWidget::QPurePursuitWidget(std::shared_ptr<rclcpp::Node> node_, QWid
     _ui.sliderLayout->addWidget(&_accelLongSlider);
     _ui.sliderLayout->addWidget(&_brakeLongSlider);
 }
+
+void QPurePursuitWidget::connectSignals(void)
+{
+    connect(&_applyAllPB, &QPushButton::clicked, this, &QGapFollowWidget::onApplyAllClicked);
+}
+
+void QPurePursuitWidget::onApplyAllClicked(void)
+{
+    const auto sliders = this->findChildren<QParamSlider*>();
+    for (auto* slider : sliders)
+    {
+        slider->onApplyClicked();
+    }
+}

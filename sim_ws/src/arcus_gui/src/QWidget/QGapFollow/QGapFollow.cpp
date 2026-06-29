@@ -16,3 +16,17 @@ QGapFollowWidget::QGapFollowWidget(std::shared_ptr<rclcpp::Node> node_, QWidget*
     _ui.sliderLayout->addWidget(&_bubbleRadiusSlider);
     _ui.sliderLayout->addWidget(&_staticFrictionCoeffSlider);
 }
+
+void QGapFollowWidget::connectSignals(void)
+{
+    connect(&_applyAllPB, &QPushButton::clicked, this, &QGapFollowWidget::onApplyAllClicked);
+}
+
+void QGapFollowWidget::onApplyAllClicked(void)
+{
+    const auto sliders = this->findChildren<QParamSlider*>();
+    for (auto* slider : sliders)
+    {
+        slider->onApplyClicked();
+    }
+}

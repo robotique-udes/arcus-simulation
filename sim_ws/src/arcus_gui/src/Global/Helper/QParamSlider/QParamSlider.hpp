@@ -13,10 +13,10 @@ class QParamSlider : public QWidget
   public:
     QParamSlider(QWidget* parent_, std::shared_ptr<rclcpp::Node> node_, std::string paramName, std::string remoteNodeName, float min_, float max_, float defaultVal_, float precision_);
 
+    void onApplyClicked();
   private slots:
     void onSliderMoved(int value);
     void onValueManuallyChanged(const QString& text);
-    void onApplyClicked();
 
   private:
     void setupUi(void);
