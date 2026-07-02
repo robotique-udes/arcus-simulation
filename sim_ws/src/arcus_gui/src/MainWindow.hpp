@@ -19,6 +19,7 @@
 #include "QWidget/QGapFollow/QGapFollow.hpp"
 #include "QWidget/QMapRacelineHelpers/QMapRacelineHelpers.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 class MainWindow : public QMainWindow
 {
@@ -28,6 +29,7 @@ class MainWindow : public QMainWindow
     explicit MainWindow(std::shared_ptr<rclcpp::Node> guiNode_);
 
   private:
+    void onGlobalSaveClicked(void);
     void closeEvent(QCloseEvent* event_) override;
 
     QWidget _centralWidget = QWidget(this); // main widget that holds all other widgets, set as central widget of QMainWindow

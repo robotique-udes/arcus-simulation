@@ -19,7 +19,7 @@ QGapFollowWidget::QGapFollowWidget(std::shared_ptr<rclcpp::Node> node_, QWidget*
 
 void QGapFollowWidget::connectSignals(void)
 {
-    connect(&_applyAllPB, &QPushButton::clicked, this, &QGapFollowWidget::onApplyAllClicked);
+    connect(_ui.applyAllPB, &QPushButton::clicked, this, &QGapFollowWidget::onApplyAllClicked);
 }
 
 void QGapFollowWidget::onApplyAllClicked(void)

@@ -23,7 +23,7 @@ QPurePursuitWidget::QPurePursuitWidget(std::shared_ptr<rclcpp::Node> node_, QWid
 
 void QPurePursuitWidget::connectSignals(void)
 {
-    connect(&_applyAllPB, &QPushButton::clicked, this, &QGapFollowWidget::onApplyAllClicked);
+    connect(_ui.applyAllPB, &QPushButton::clicked, this, &QPurePursuitWidget::onApplyAllClicked);
 }
 
 void QPurePursuitWidget::onApplyAllClicked(void)
