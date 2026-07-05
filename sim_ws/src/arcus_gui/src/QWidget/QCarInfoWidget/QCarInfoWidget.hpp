@@ -8,6 +8,8 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <QtWidgets/QWidget>
+#include <QDir>
+#include <QFileInfoList>
 
 class QCarInfoWidget : public QWidget  
 {
@@ -29,6 +31,7 @@ class QCarInfoWidget : public QWidget
     void updateRiskIU(float risk_);
     
   private slots:
+    void onPathChanged();
     void onUpdateAngleUI(float angle_);
     void onUpdateSpeedUI(float speed_);
     void onUpdateRiskUI(float risk_);
@@ -44,6 +47,8 @@ class QCarInfoWidget : public QWidget
     void CB_driver(ackermann_msgs::msg::AckermannDriveStamped& msg_);
 
     void CB_risk(std_msgs::msg::Float32& msg_);
+
+    void updateFileList();
 
     std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> _sub_odom;
 

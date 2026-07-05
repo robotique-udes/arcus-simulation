@@ -1,5 +1,6 @@
 #include "QCarInfoWidget.hpp"
 
+
 QCarInfoWidget::QCarInfoWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_):
     QWidget(parent_),
     _node(node_)
@@ -7,6 +8,8 @@ QCarInfoWidget::QCarInfoWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* par
     _ui.setupUi(this);
 
     this->initSubscriber();
+
+    connect(_ui.lineEditPath, &QLineEdit::editingFinished, this, &QCarInfoWidget::onPathChanged);
 
     connect(this, &QCarInfoWidget::updateSpeedIU, this, &QCarInfoWidget::onUpdateSpeedUI);
 
@@ -39,6 +42,8 @@ void QCarInfoWidget::initSubscriber(void)
         assert(false && "Error: GUI node is null");
     }                                                                
     }
+
+
 
 void QCarInfoWidget::CB_odom(nav_msgs::msg::Odometry& msg_)
 {
@@ -74,5 +79,34 @@ void QCarInfoWidget::onUpdateAngleUI(float angle_)
 void QCarInfoWidget::onUpdateRiskUI(float risk_)
 {
     this->_ui.lcdX1->display(QString::number(risk_,'f',2));
+}
+
+void QCarInfoWidget::onPathChanged()
+{
+    QString path = _ui.lineEditPath->text();
+    QDir dir(path);
+
+    _ui.comboBoxMaps->clear();
+
+    if (!dir.exists()) {
+        _ui.comboBoxMaps->addItem("Dossier introuvable");
+        return;
+    }
+
+    // Filtre sur les extensions d'images courantes
+    QStringList filters;
+    filters << "*.pgm";
+
+    QFileInfoList files = dir.entryInfoList(filters, QDir::Files, QDir::Name);
+
+    if (files.isEmpty()) {
+        _ui.comboBoxMaps->addItem("Aucune image trouvée");
+        return;
+    }
+
+    for (const QFileInfo &file : files) {
+        _ui.comboBoxMaps->addItem(file.fileName());
+    }
+
 }
 
