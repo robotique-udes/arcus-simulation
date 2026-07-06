@@ -15,6 +15,8 @@ QGapFollowWidget::QGapFollowWidget(std::shared_ptr<rclcpp::Node> node_, QWidget*
     _ui.sliderLayout->addWidget(&_distanceSpeedGainSlider);
     _ui.sliderLayout->addWidget(&_bubbleRadiusSlider);
     _ui.sliderLayout->addWidget(&_staticFrictionCoeffSlider);
+
+    this->connectSignals();
 }
 
 void QGapFollowWidget::connectSignals(void)

@@ -39,6 +39,8 @@ class QMapRacelineHelpers : public QWidget
 
   private:
     void setupUI(void);
+    void connectSignals(void);
+    void onApplyAllClicked(void);
 
     std::shared_ptr<rclcpp::Node> _node;
 

@@ -19,6 +19,8 @@ QPurePursuitWidget::QPurePursuitWidget(std::shared_ptr<rclcpp::Node> node_, QWid
     _ui.sliderLayout->addWidget(&_accelLatSlider);
     _ui.sliderLayout->addWidget(&_accelLongSlider);
     _ui.sliderLayout->addWidget(&_brakeLongSlider);
+
+    this->connectSignals();
 }
 
 void QPurePursuitWidget::connectSignals(void)

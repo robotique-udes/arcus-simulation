@@ -11,4 +11,20 @@ QMapRacelineHelpers::QMapRacelineHelpers(std::shared_ptr<rclcpp::Node> node_, QW
     _ui.buttonsLayout->addWidget(&_racelineHelper);
     _ui.buttonsLayout->addWidget(&_ttcDecayRateSlider);
     _ui.buttonsLayout->addWidget(&_maxRiskSlider);
+
+    this->connectSignals();
+}
+
+void QMapRacelineHelpers::connectSignals(void)
+{
+    connect(_ui.applyAllPB, &QPushButton::clicked, this, &QMapRacelineHelpers::onApplyAllClicked);
+}
+
+void QMapRacelineHelpers::onApplyAllClicked(void)
+{
+    const auto sliders = this->findChildren<QParamSlider*>();
+    for (auto* slider : sliders)
+    {
+        slider->onApplyClicked();
+    }
 }
