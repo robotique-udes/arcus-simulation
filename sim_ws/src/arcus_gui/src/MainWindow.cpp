@@ -40,7 +40,7 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _gridLayout.setRowStretch(1, 10);
     _gridLayout.setRowStretch(2, 1);
 
-    _paramSaverClient = _node->create_client<std_srvs::srv::Trigger>("/arcus/save_parameters");
+    _paramSaverClient = guiNode_->create_client<std_srvs::srv::Trigger>("/arcus/save_parameters");
 
     connect(_globalSaveButton, &QPushButton::clicked, this, &MainWindow::onGlobalSaveClicked);
 }
