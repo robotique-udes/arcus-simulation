@@ -45,6 +45,7 @@ add_executable(main_gui src/gui.cpp
     src/QWidget/QMapRacelineHelpers/QMapRacelineHelpers.cpp
     src/QWidget/QPurePursuitWidget/QPurePursuit.cpp
     src/QWidget/QGapFollow/QGapFollow.cpp
+    src/QWidget/QParamSaverWidget/QParamSaverWidget.cpp
     src/QWidget/QArcusMaster/QSafetyWidget/QSafetyWidget.cpp
     src/Global/Helper/QTopicSelector/QTopicSelector.cpp
     src/Global/Helper/QProcessHandler/QProcessHandler.cpp

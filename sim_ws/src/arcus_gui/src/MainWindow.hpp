@@ -15,11 +15,11 @@
 
 #include "QWidget/QArcusMaster/QArcusMaster.hpp"
 #include "QWidget/QLocalNodes/QLocalNodes.hpp"
+#include "QWidget/QParamSaverWidget/QParamSaverWidget.hpp"
 #include "QWidget/QPurePursuitWidget/QPurePursuit.hpp"
 #include "QWidget/QGapFollow/QGapFollow.hpp"
 #include "QWidget/QMapRacelineHelpers/QMapRacelineHelpers.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "std_srvs/srv/trigger.hpp"
 
 class MainWindow : public QMainWindow
 {
@@ -29,11 +29,10 @@ class MainWindow : public QMainWindow
     explicit MainWindow(std::shared_ptr<rclcpp::Node> guiNode_);
 
   private:
-    void onGlobalSaveClicked(void);
     void closeEvent(QCloseEvent* event_) override;
 
     std::shared_ptr<rclcpp::Node> _node;
-    
+
     QWidget _centralWidget = QWidget(this); // main widget that holds all other widgets, set as central widget of QMainWindow
     QGridLayout _gridLayout = QGridLayout(&_centralWidget); // grid layout to hold child widgets
 
@@ -43,9 +42,7 @@ class MainWindow : public QMainWindow
     QMapRacelineHelpers _mapRacelineHelpers;
     QPurePursuitWidget _purePursuitWidget;
     QGapFollowWidget _gapFollowWidget;
-
-    QPushButton* _globalSaveButton;
-    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr _paramSaverClient;
+    QParamSaverWidget _paramSaverWidget;
 };
 
 #endif  // MAIN_WINDOWS_HPP
