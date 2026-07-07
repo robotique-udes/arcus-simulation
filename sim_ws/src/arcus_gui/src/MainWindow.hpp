@@ -32,6 +32,8 @@ class MainWindow : public QMainWindow
     void onGlobalSaveClicked(void);
     void closeEvent(QCloseEvent* event_) override;
 
+    std::shared_ptr<rclcpp::Node> _node;
+    
     QWidget _centralWidget = QWidget(this); // main widget that holds all other widgets, set as central widget of QMainWindow
     QGridLayout _gridLayout = QGridLayout(&_centralWidget); // grid layout to hold child widgets
 
@@ -43,7 +45,6 @@ class MainWindow : public QMainWindow
     QGapFollowWidget _gapFollowWidget;
 
     QPushButton* _globalSaveButton;
-    std::shared_ptr<rclcpp::Node> _node;
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr _paramSaverClient;
 };
 
