@@ -1,4 +1,4 @@
- # MIT License
+# MIT License
 
 # Copyright (c) 2020 Hongrui Zheng
 
@@ -44,17 +44,17 @@ class GymBridge(Node):
     def __init__(self):
         super().__init__('gym_bridge')
         
-        #Added default values for parameters to avoid warnings
+        # Added default values for parameters to avoid warnings
         self.declare_parameter('ego_namespace', '')
         self.declare_parameter('ego_odom_topic', '')
         self.declare_parameter('ego_opp_odom_topic', '')
-        self.declare_parameter('ego_scan_topic','')
-        self.declare_parameter('ego_drive_topic','')
-        self.declare_parameter('opp_namespace','')
-        self.declare_parameter('opp_odom_topic','')
-        self.declare_parameter('opp_ego_odom_topic','')
-        self.declare_parameter('opp_scan_topic','')
-        self.declare_parameter('opp_drive_topic','')
+        self.declare_parameter('ego_scan_topic', '')
+        self.declare_parameter('ego_drive_topic', '')
+        self.declare_parameter('opp_namespace', '')
+        self.declare_parameter('opp_odom_topic', '')
+        self.declare_parameter('opp_ego_odom_topic', '')
+        self.declare_parameter('opp_scan_topic', '')
+        self.declare_parameter('opp_drive_topic', '')
         self.declare_parameter('scan_distance_to_base_link', 0.0)
         self.declare_parameter('scan_fov', 0.0)
         self.declare_parameter('scan_beams', 0)
@@ -64,22 +64,22 @@ class GymBridge(Node):
         self.declare_parameter('sx', 0.0)
         self.declare_parameter('sy', 0.0)
         self.declare_parameter('stheta', 0.0)
-        self.declare_parameter('sx1',0.0)
-        self.declare_parameter('sy1',0.0)
-        self.declare_parameter('stheta1',0.0)
+        self.declare_parameter('sx1', 0.0)
+        self.declare_parameter('sy1', 0.0)
+        self.declare_parameter('stheta1', 0.0)
         self.declare_parameter('kb_teleop', True)
         self.declare_parameter('use_sim_localization', False)
         self.declare_parameter('run_slam', False)
         self.declare_parameter('slam_maps_dir', '')
 
-        # check num_agents
+        # Check num_agents
         num_agents = self.get_parameter('num_agent').value
         if num_agents < 1 or num_agents > 2:
             raise ValueError('num_agents should be either 1 or 2.')
         elif type(num_agents) != int:
             raise ValueError('num_agents should be an int.')
 
-        # load latest map from slam_map_saver
+        # Load latest map from slam_map_saver
         if self.get_parameter('use_sim_localization').value and not self.get_parameter('run_slam').value:
             yaml_files = glob.glob(os.path.join(self.get_parameter('slam_maps_dir').value, "*.yaml"))
             if not yaml_files:
@@ -89,12 +89,13 @@ class GymBridge(Node):
             latest_map, x = os.path.splitext(latest_map)
             map_path = latest_map
             map_ext = self.get_parameter('map_img_ext').value
-        else: #Else map is default
+        else:
             map_path = self.get_parameter('map_path').value
             map_ext = '.pgm'
 
         self.get_logger().info(f"Loading map from {map_path + map_ext}")
-        # env backend
+
+        # Env backend
         self.env = gym.make('f110_gym:f110-v0',
                             disable_env_checker=True,
                             map=map_path,
@@ -131,7 +132,10 @@ class GymBridge(Node):
             self.opp_requested_speed = 0.0
             self.opp_steer = 0.0
             self.opp_collision = False
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[sx, sy, stheta], [sx1, sy1, stheta1]]))
+            self.obs, _ = self.env.reset(
+                options={"poses": np.array([[sx, sy, stheta], [sx1, sy1, stheta1]])}
+            )
+            self.done = False
             self.ego_scan = list(self.obs['scans'][0])
             self.opp_scan = list(self.obs['scans'][1])
 
@@ -147,19 +151,18 @@ class GymBridge(Node):
                 options={"poses": np.array([[sx, sy, stheta]])}
             )
             self.done = False
-
             self.ego_scan = list(self.obs['scans'][0])
 
-        # sim physical step timer
+        # Sim physical step timer
         self.drive_timer = self.create_timer(0.01, self.drive_timer_callback)
-        # topic publishing timer
+        # Topic publishing timer
         self.timer = self.create_timer(0.004, self.timer_callback)
         self.odom_timer = self.create_timer(0.02, self.odom_timer_callback)
 
-        # transform broadcaster
+        # Transform broadcaster
         self.br = TransformBroadcaster(self)
 
-        # publishers
+        # Publishers
         self.ego_scan_pub = self.create_publisher(LaserScan, ego_scan_topic, 10)
         self.ego_odom_pub = self.create_publisher(Odometry, ego_odom_topic, 10)
         self.ego_drive_published = False
@@ -171,7 +174,7 @@ class GymBridge(Node):
             self.opp_ego_odom_pub = self.create_publisher(Odometry, opp_ego_odom_topic, 10)
             self.opp_drive_published = False
 
-        # subscribers
+        # Subscribers
         self.ego_drive_sub = self.create_subscription(
             AckermannDriveStamped,
             ego_drive_topic,
@@ -223,11 +226,23 @@ class GymBridge(Node):
         rqz = pose_msg.pose.pose.orientation.z
         rqw = pose_msg.pose.pose.orientation.w
         _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes='sxyz')
+
         if self.has_opp:
             opp_pose = [self.obs['poses_x'][1], self.obs['poses_y'][1], self.obs['poses_theta'][1]]
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[rx, ry, rtheta], opp_pose]))
+            self.obs, _ = self.env.reset(
+                options={"poses": np.array([[rx, ry, rtheta], opp_pose])}
+            )
         else:
-            self.obs, _ , self.done, _ = self.env.reset(np.array([[rx, ry, rtheta]]))
+            self.obs, _ = self.env.reset(
+                options={"poses": np.array([[rx, ry, rtheta]])}
+            )
+        self.done = False
+
+        # Sync ego_pose so odom/TF publishers immediately reflect the new position
+        self.ego_pose = [rx, ry, rtheta]
+        self.ego_speed = [0.0, 0.0, 0.0]
+        # NOTE: do NOT call publish_initial_pose() here — this callback is already
+        # triggered by /initialpose, so republishing to it causes an infinite loop.
 
     def opp_reset_callback(self, pose_msg):
         if self.has_opp:
@@ -238,7 +253,16 @@ class GymBridge(Node):
             rqz = pose_msg.pose.orientation.z
             rqw = pose_msg.pose.orientation.w
             _, _, rtheta = euler.quat2euler([rqw, rqx, rqy, rqz], axes='sxyz')
-            self.obs, _ , self.done, _ = self.env.reset(np.array([list(self.ego_pose), [rx, ry, rtheta]]))
+
+            self.obs, _ = self.env.reset(
+                options={"poses": np.array([list(self.ego_pose), [rx, ry, rtheta]])}
+            )
+            self.done = False
+
+            # Sync opp_pose so odom/TF publishers immediately reflect the new position
+            self.opp_pose = [rx, ry, rtheta]
+            self.opp_speed = [0.0, 0.0, 0.0]
+
     def teleop_callback(self, twist_msg):
         if not self.ego_drive_published:
             self.ego_drive_published = True
@@ -262,7 +286,7 @@ class GymBridge(Node):
     def timer_callback(self):
         ts = self.get_clock().now().to_msg()
 
-        # pub scans
+        # Publish scans
         scan = LaserScan()
         scan.header.stamp = ts
         scan.header.frame_id = self.ego_namespace + '/laser'
@@ -286,7 +310,7 @@ class GymBridge(Node):
             opp_scan.ranges = self.opp_scan
             self.opp_scan_pub.publish(opp_scan)
 
-        # pub tf only if ekf is not running
+        # Publish TF only if EKF/SLAM is not running
         if not self.get_parameter('use_sim_localization').value and not self.get_parameter('run_slam').value:
             self._publish_transforms(ts)
             
@@ -322,13 +346,14 @@ class GymBridge(Node):
         msg.pose.pose.orientation.y = quat[2]
         msg.pose.pose.orientation.z = quat[3]
         msg.pose.pose.orientation.w = quat[0]
-        msg.pose.covariance = [0.2, 0.0, 0.0, 0.0, 0.0, 0.0, #Added pose covariance to simulate EKF
-                               0.0, 0.2, 0.0, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 0.4]
-        
+        msg.pose.covariance = [
+            0.2, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.2, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.4,
+        ]
         self.init_pose_pub.publish(msg)
 
     def _publish_odom(self, ts):
@@ -347,21 +372,23 @@ class GymBridge(Node):
         ego_odom.twist.twist.linear.y = self.ego_speed[1]
         ego_odom.twist.twist.angular.z = self.ego_speed[2]
 
-        # Add pose covariance for EKF, these values can be tuned as needed
-        ego_odom.pose.covariance = [0.2, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                    0.0, 0.2, 0.0, 0.0, 0.0, 0.0,
-                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.4]
-        # Add twist covariance for EKF, these values can be tuned as needed
+        # Pose covariance for EKF (tunable)
+        ego_odom.pose.covariance = [
+            0.2, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.2, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.4,
+        ]
+        # Twist covariance for EKF (tunable)
         ego_odom.twist.covariance = [
-            0.02, 0.0, 0.0, 0.0,   0.0,   0.0,
-            0.0, 0.01, 0.0, 0.0,   0.0,   0.0,
-            0.0, 0.0, 0.0, 0.0,   0.0,   0.0,
-            0.0, 0.0, 0.0, 0.0,   0.0,   0.0,
-            0.0, 0.0, 0.0, 0.0,   0.0,   0.0,
-            0.0, 0.0, 0.0, 0.0,   0.0,   0.09
+            0.02, 0.0,  0.0, 0.0, 0.0, 0.0,
+            0.0,  0.01, 0.0, 0.0, 0.0, 0.0,
+            0.0,  0.0,  0.0, 0.0, 0.0, 0.0,
+            0.0,  0.0,  0.0, 0.0, 0.0, 0.0,
+            0.0,  0.0,  0.0, 0.0, 0.0, 0.0,
+            0.0,  0.0,  0.0, 0.0, 0.0, 0.09,
         ]
         self.ego_odom_pub.publish(ego_odom)
 
@@ -381,14 +408,12 @@ class GymBridge(Node):
             opp_odom.twist.twist.linear.y = self.opp_speed[1]
             opp_odom.twist.twist.angular.z = self.opp_speed[2]
 
-            # Add covariance as above
             opp_odom.pose.covariance = ego_odom.pose.covariance
             opp_odom.twist.covariance = ego_odom.twist.covariance
 
             self.opp_odom_pub.publish(opp_odom)
             self.opp_ego_odom_pub.publish(ego_odom)
             self.ego_opp_odom_pub.publish(opp_odom)
-
 
     def _publish_transforms(self, ts):
         ego_t = Transform()
@@ -404,7 +429,7 @@ class GymBridge(Node):
         ego_ts = TransformStamped()
         ego_ts.transform = ego_t
         ego_ts.header.stamp = ts
-        ego_ts.header.frame_id = 'map' # If not using localization, publish directly in map frame
+        ego_ts.header.frame_id = 'map'  # If not using localization, publish directly in map frame
         ego_ts.child_frame_id = self.ego_namespace + '/base_link'
         self.br.sendTransform(ego_ts)
 
@@ -459,7 +484,6 @@ class GymBridge(Node):
     def _publish_laser_transforms(self, ts):
         ego_scan_ts = TransformStamped()
         ego_scan_ts.transform.translation.x = self.scan_distance_to_base_link
-        # ego_scan_ts.transform.translation.z = 0.04+0.1+0.025
         ego_scan_ts.transform.rotation.w = 1.
         ego_scan_ts.header.stamp = ts
         ego_scan_ts.header.frame_id = self.ego_namespace + '/base_link'
@@ -474,6 +498,7 @@ class GymBridge(Node):
             opp_scan_ts.header.frame_id = self.opp_namespace + '/base_link'
             opp_scan_ts.child_frame_id = self.opp_namespace + '/laser'
             self.br.sendTransform(opp_scan_ts)
+
 
 def main(args=None):
     rclpy.init(args=args)

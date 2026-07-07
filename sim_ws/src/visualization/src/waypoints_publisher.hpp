@@ -12,7 +12,7 @@
 class WaypointsPublisher : public rclcpp::Node
 {
     static constexpr const char* WAYPOINTS_TOPIC = "/waypoints";
-    static constexpr const char* DEFAULT_WAYPOINTS_FILE_PATH = "/sim_ws/src/arcus/resources/waypoints/waypoints.csv";
+    static constexpr const char* DEFAULT_WAYPOINTS_FILE_PATH = "/sim_ws/src/scripts/map_preparation/saved/waypoints.csv";
     static constexpr uint32_t PUBLISH_WAYPOINTS_DELAY_MS = 1'000u;
     static constexpr uint32_t DEFAULT_QOS = 1;
 
