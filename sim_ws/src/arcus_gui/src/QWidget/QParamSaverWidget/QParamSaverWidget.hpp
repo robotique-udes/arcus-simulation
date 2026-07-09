@@ -5,6 +5,8 @@
 #include "std_srvs/srv/trigger.hpp"
 
 #include <QtWidgets/QWidget>
+#include <QInputDialog>
+#include <QMessageBox>
 #include <QTimer>
 #include <rclcpp/rclcpp.hpp>
 
@@ -20,6 +22,7 @@ class QParamSaverWidget : public QWidget
     void onGlobalSaveClicked(void);
     void reloadProfiles(void);
     void onProfileSwitch(const QString &text);
+    void onAddProfileClicked(void);
     void setUiEnabled(bool enabled);
 
     std::shared_ptr<rclcpp::Node> _node;

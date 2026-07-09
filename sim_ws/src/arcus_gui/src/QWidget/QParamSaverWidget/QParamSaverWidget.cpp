@@ -19,6 +19,7 @@ void QParamSaverWidget::connectSignals(void)
     connect(_ui.globalSaveButton, &QPushButton::clicked, this, &QParamSaverWidget::onGlobalSaveClicked);
     connect(_ui.refreshButton, &QPushButton::clicked, this, &QParamSaverWidget::reloadProfiles);
     connect(_ui.configProfilesDropdown, &QComboBox::currentTextChanged, this, &QParamSaverWidget::onProfileSwitch);
+    connect(_ui.addProfileButton, &QPushButton::clicked, this, &QParamSaverWidget::onAddProfileClicked);
 }
 
 void QParamSaverWidget::onGlobalSaveClicked(void)
@@ -148,9 +149,62 @@ void QParamSaverWidget::onProfileSwitch(const QString &text)
         });
 }
 
+void QParamSaverWidget::onAddProfileClicked(void)
+{
+    bool ok;
+    QString new_profile = QInputDialog::getText(this, 
+        tr("Create New Profile"),
+        tr("Enter unique profile name:"), 
+        QLineEdit::Normal,
+        tr(""), &ok);
+
+    if (!ok || new_profile.trimmed().isEmpty()) {
+        return;
+    }
+
+    std::string profile_name = new_profile.trimmed().toStdString();
+
+    if (_ui.configProfilesDropdown->findText(new_profile.trimmed()) != -1) {
+        QMessageBox::warning(this, tr("Duplicate Profile"), 
+            tr("A profile named '%1' already exists!").arg(new_profile));
+        return;
+    }
+
+    if (!_setParamClient->wait_for_service(std::chrono::milliseconds(500)))
+    {
+        RCLCPP_ERROR(_node->get_logger(), "Unable to create profile: SetParameter service offline!");
+        return;
+    }
+
+    this->setUiEnabled(false);
+
+    auto request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
+    rcl_interfaces::msg::Parameter param;
+    param.name = "config_name";
+    param.value.type = rcl_interfaces::msg::ParameterType::PARAMETER_STRING;
+    param.value.string_value = profile_name;
+    request->parameters.push_back(param);
+
+    RCLCPP_INFO(_node->get_logger(), "Requesting new profile generation for: '%s'...", profile_name.c_str());
+
+    _setParamClient->async_send_request(request,
+        [this](rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedFuture future) {
+            this->setUiEnabled(true);
+
+            auto response = future.get();
+            if (!response->results.empty() && response->results[0].successful) {
+                QTimer::singleShot(200, this, &QParamSaverWidget::reloadProfiles);
+            } else {
+                std::string reason = response->results.empty() ? "Unknown Error" : response->results[0].reason;
+                RCLCPP_ERROR(_node->get_logger(), "Failed to create profile: %s", reason.c_str());
+            }
+        });
+}
+
 void QParamSaverWidget::setUiEnabled(bool enabled)
 {
     _ui.configProfilesDropdown->setEnabled(enabled);
     _ui.refreshButton->setEnabled(enabled);
+    _ui.addProfileButton->setEnabled(enabled);
     _ui.globalSaveButton->setEnabled(enabled);
 }
