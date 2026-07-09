@@ -5,6 +5,7 @@
 #include "std_srvs/srv/trigger.hpp"
 
 #include <QtWidgets/QWidget>
+#include <QTimer>
 #include <rclcpp/rclcpp.hpp>
 
 class QParamSaverWidget : public QWidget
@@ -17,10 +18,17 @@ class QParamSaverWidget : public QWidget
   private:
     void connectSignals(void);
     void onGlobalSaveClicked(void);
+    void reloadProfiles(void);
+    void onProfileSwitch(const QString &text);
+    void setUiEnabled(bool enabled);
 
     std::shared_ptr<rclcpp::Node> _node;
 
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr _paramSaverClient;
+    rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr _getParamClient;
+    rclcpp::Client<rcl_interfaces::srv::SetParameters>::SharedPtr _setParamClient;
+
+    bool _isUpdatingDropdown = false;
 
     Ui::paramSaverWidget _ui;
 };
