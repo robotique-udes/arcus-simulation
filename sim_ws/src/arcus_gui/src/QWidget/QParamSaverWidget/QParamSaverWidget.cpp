@@ -55,17 +55,39 @@ void QParamSaverWidget::reloadProfiles(void)
     this->setUiEnabled(false);
 
     auto request = std::make_shared<rcl_interfaces::srv::GetParameters::Request>();
-    request->names.push_back("available_profiles");
+    request->names = {"available_profiles", "config_name"};
 
     _getParamClient->async_send_request(request,
-        [this](rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture future) {
+        [this, request](rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedFuture future) {
             this->setUiEnabled(true);
 
             auto response = future.get();
-            if (!response->values.empty() && response->values[0].type == rcl_interfaces::msg::ParameterType::PARAMETER_STRING_ARRAY) 
-            {
-                std::vector<std::string> configs = response->values[0].string_array_value;
-                
+
+            if (response->values.size() != request->names.size()) {
+                RCLCPP_ERROR(_node->get_logger(), "Parameter response size mismatch!");
+                return;
+            }
+
+            std::vector<std::string> configs;
+            std::string current_config = "";
+
+            for (size_t i = 0; i < request->names.size(); ++i) {
+                const auto& param_name = request->names[i];
+                const auto& param_value = response->values[i];
+
+                if (param_name == "available_profiles" && 
+                    param_value.type == rcl_interfaces::msg::ParameterType::PARAMETER_STRING_ARRAY) 
+                {
+                    configs = param_value.string_array_value;
+                }
+                else if (param_name == "config_name" && 
+                         param_value.type == rcl_interfaces::msg::ParameterType::PARAMETER_STRING) 
+                {
+                    current_config = param_value.string_value;
+                }
+            }
+
+            if (!configs.empty()) {
                 _isUpdatingDropdown = true;
                 
                 _ui.configProfilesDropdown->clear();
@@ -73,8 +95,15 @@ void QParamSaverWidget::reloadProfiles(void)
                     _ui.configProfilesDropdown->addItem(QString::fromStdString(profile));
                 }
                 
+                if (!current_config.empty()) {
+                    int target_index = _ui.configProfilesDropdown->findText(QString::fromStdString(current_config));
+                    if (target_index != -1) {
+                        _ui.configProfilesDropdown->setCurrentIndex(target_index);
+                    }
+                }
+                
                 _isUpdatingDropdown = false;
-                RCLCPP_INFO(_node->get_logger(), "Successfully refreshed configuration dropdown profiles.");
+                RCLCPP_INFO(_node->get_logger(), "Refreshed profiles. Active configuration: '%s'", current_config.c_str());
             }
         });
 }
