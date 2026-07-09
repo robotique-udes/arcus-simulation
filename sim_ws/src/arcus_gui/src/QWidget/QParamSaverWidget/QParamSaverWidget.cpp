@@ -98,7 +98,9 @@ void QParamSaverWidget::reloadProfiles(void)
                 if (!current_config.empty()) {
                     int target_index = _ui.configProfilesDropdown->findText(QString::fromStdString(current_config));
                     if (target_index != -1) {
+                        _ui.configProfilesDropdown->blockSignals(true);
                         _ui.configProfilesDropdown->setCurrentIndex(target_index);
+                        _ui.configProfilesDropdown->blockSignals(false);
                     }
                 }
                 
