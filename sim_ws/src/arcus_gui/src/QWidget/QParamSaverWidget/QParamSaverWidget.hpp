@@ -7,7 +7,7 @@
 #include <QtWidgets/QWidget>
 #include <QInputDialog>
 #include <QMessageBox>
-#include <QTimer>
+#include <QMetaObject>
 #include <rclcpp/rclcpp.hpp>
 
 class QParamSaverWidget : public QWidget
@@ -20,7 +20,7 @@ class QParamSaverWidget : public QWidget
   private:
     void connectSignals(void);
     void onGlobalSaveClicked(void);
-    void reloadProfiles(void);
+    Q_INVOKABLE void reloadProfiles(void);
     void onProfileSwitch(const QString &text);
     void onAddProfileClicked(void);
     void setUiEnabled(bool enabled);

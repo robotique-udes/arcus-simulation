@@ -141,7 +141,7 @@ void QParamSaverWidget::onProfileSwitch(const QString &text)
             if (!response->results.empty() && response->results[0].successful) {
                 RCLCPP_INFO(_node->get_logger(), "Profile successfully changed to '%s'", profile_name.c_str());
                 
-                QTimer::singleShot(200, this, &QParamSaverWidget::reloadProfiles);
+                QMetaObject::invokeMethod(this, "reloadProfiles", Qt::QueuedConnection);
             } else {
                 std::string reason = response->results.empty() ? "Unknown Error" : response->results[0].reason;
                 RCLCPP_ERROR(_node->get_logger(), "Failed to switch profile: %s", reason.c_str());
@@ -193,7 +193,7 @@ void QParamSaverWidget::onAddProfileClicked(void)
 
             auto response = future.get();
             if (!response->results.empty() && response->results[0].successful) {
-                QTimer::singleShot(200, this, &QParamSaverWidget::reloadProfiles);
+                QMetaObject::invokeMethod(this, "reloadProfiles", Qt::QueuedConnection);
             } else {
                 std::string reason = response->results.empty() ? "Unknown Error" : response->results[0].reason;
                 RCLCPP_ERROR(_node->get_logger(), "Failed to create profile: %s", reason.c_str());
