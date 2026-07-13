@@ -15,6 +15,7 @@
 
 #include "QWidget/QArcusMaster/QArcusMaster.hpp"
 #include "QWidget/QLocalNodes/QLocalNodes.hpp"
+#include "QWidget/QParamSaverWidget/QParamSaverWidget.hpp"
 #include "QWidget/QPurePursuitWidget/QPurePursuit.hpp"
 #include "QWidget/QGapFollow/QGapFollow.hpp"
 #include "QWidget/QMapRacelineHelpers/QMapRacelineHelpers.hpp"
@@ -30,6 +31,8 @@ class MainWindow : public QMainWindow
   private:
     void closeEvent(QCloseEvent* event_) override;
 
+    std::shared_ptr<rclcpp::Node> _node;
+
     QWidget _centralWidget = QWidget(this); // main widget that holds all other widgets, set as central widget of QMainWindow
     QGridLayout _gridLayout = QGridLayout(&_centralWidget); // grid layout to hold child widgets
 
@@ -39,6 +42,7 @@ class MainWindow : public QMainWindow
     QMapRacelineHelpers _mapRacelineHelpers;
     QPurePursuitWidget _purePursuitWidget;
     QGapFollowWidget _gapFollowWidget;
+    QParamSaverWidget _paramSaverWidget;
 };
 
 #endif  // MAIN_WINDOWS_HPP
