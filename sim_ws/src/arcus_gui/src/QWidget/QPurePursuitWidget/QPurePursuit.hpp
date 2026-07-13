@@ -52,6 +52,7 @@ class QPurePursuitWidget : public QWidget
   public:
     QPurePursuitWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
 
+    void refreshSliderValues(void);
   private:
     void setupUI(void);
     void connectSignals(void);
@@ -65,6 +66,8 @@ class QPurePursuitWidget : public QWidget
     QParamSlider _accelLatSlider;
     QParamSlider _accelLongSlider;
     QParamSlider _brakeLongSlider;
+
+    std::map<std::string, rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr> _param_clients;
 
     Ui::purePursuitWidget _ui;
 };

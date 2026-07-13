@@ -6,6 +6,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <QtWidgets/QWidget>
+#include <QMetaObject>
 
 class QGapFollowWidget : public QWidget
 {
@@ -41,6 +42,7 @@ class QGapFollowWidget : public QWidget
   public:
     QGapFollowWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
 
+    void refreshSliderValues(void);
   private:
     void setupUI(void);
     void connectSignals(void);
@@ -52,6 +54,8 @@ class QGapFollowWidget : public QWidget
     QParamSlider _distanceSpeedGainSlider;
     QParamSlider _bubbleRadiusSlider;
     QParamSlider _staticFrictionCoeffSlider;
+
+    std::map<std::string, rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr> _param_clients;
 
     Ui::gapFollowWidget _ui;
 };

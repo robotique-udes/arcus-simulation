@@ -35,6 +35,7 @@ class QMapRacelineHelpers : public QWidget
   public:
     QMapRacelineHelpers(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
 
+    void refreshSliderValues(void);
   signals:
 
   private:
@@ -48,6 +49,8 @@ class QMapRacelineHelpers : public QWidget
 
     QParamSlider _ttcDecayRateSlider;
     QParamSlider _maxRiskSlider;
+
+    std::map<std::string, rclcpp::Client<rcl_interfaces::srv::GetParameters>::SharedPtr> _param_clients;
 
     Ui::MapRacelineHelpers _ui;
 };

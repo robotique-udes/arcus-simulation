@@ -16,7 +16,9 @@ class QParamSaverWidget : public QWidget
 
   public:
     QParamSaverWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
-
+  
+  signals:
+    void profileReloaded();
   private:
     void connectSignals(void);
     void onGlobalSaveClicked(void);

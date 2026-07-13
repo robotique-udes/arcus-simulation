@@ -29,6 +29,10 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _gridLayout.setRowStretch(0, 1);
     _gridLayout.setRowStretch(1, 1);
     _gridLayout.setRowStretch(2, 1);
+
+    connect(&_paramSaverWidget, &QParamSaverWidget::profileReloaded, &_gapFollowWidget, &QGapFollowWidget::refreshSliderValues);
+    connect(&_paramSaverWidget, &QParamSaverWidget::profileReloaded, &_mapRacelineHelpers, &QMapRacelineHelpers::refreshSliderValues);
+    connect(&_paramSaverWidget, &QParamSaverWidget::profileReloaded, &_purePursuitWidget, &QPurePursuitWidget::refreshSliderValues);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event_)

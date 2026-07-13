@@ -106,6 +106,7 @@ void QParamSaverWidget::reloadProfiles(void)
                 }
                 
                 _isUpdatingDropdown = false;
+                emit profileReloaded();
                 RCLCPP_INFO(_node->get_logger(), "Refreshed profiles. Active configuration: '%s'", current_config.c_str());
             }
         });
