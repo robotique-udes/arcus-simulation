@@ -33,13 +33,13 @@
     </visual>
   </link>
 
-  <joint name="base_to_laser_model" type="fixed">
+  <joint name="base_to_laser" type="fixed">
     <parent link="${car_name}/base_link"/>
-    <child link="${car_name}/laser_model"/>
+    <child link="${car_name}/laser"/>
     <origin xyz="${laser_distance_from_base_link} 0 ${ground_offset+height+(laser_height/2)}"/>
   </joint>
 
-  <link name="${car_name}/laser_model">
+  <link name="${car_name}/laser">
     <visual>
       <geometry>
         <cylinder radius="${laser_radius}" length="${laser_height}"/>
