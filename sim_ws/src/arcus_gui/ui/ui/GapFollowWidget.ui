@@ -17,21 +17,38 @@
    <item row="0" column="0">
     <layout class="QVBoxLayout" name="sliderLayout">
      <item>
-      <widget class="QLineEdit" name="lineEdit">
-       <property name="font">
-        <font>
-         <pointsize>24</pointsize>
-         <weight>75</weight>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>GAP FOLLOW</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
+      <layout class="QHBoxLayout">
+        <item>
+          <widget class="QLineEdit" name="lineEdit">
+            <property name="font">
+              <font>
+              <pointsize>24</pointsize>
+              <weight>75</weight>
+              <bold>true</bold>
+              </font>
+            </property>
+            <property name="text">
+              <string>GAP FOLLOW</string>
+            </property>
+            <property name="alignment">
+              <set>Qt::AlignCenter</set>
+            </property>
+          </widget>
+        </item>
+        <item>
+          <widget class="QPushButton" name="applyAllPB">
+          <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+            </sizepolicy>
+          </property>
+          <property name="text">
+            <string>Apply all</string>
+          </property>
+          </widget>
+        </item>
+      </layout>
      </item>
      <item>
       <spacer name="verticalSpacer">
