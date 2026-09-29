@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get update --fix-missing && \
     apt-get install -y git \
     nano \
+    wget \
     vim \
     tmux \
     python3-pip \
@@ -32,7 +33,15 @@ RUN apt-get update --fix-missing && \
     libgl1-mesa-dri \
     mesa-utils \
     libglu1-mesa \
-    ros-humble-rviz2 \
+    x11-apps \
+    x11-apps xterm \
+    clang-format \
+    openssh-client \
+    iputils-ping \
+    libnss-mdns
+
+RUN apt-get update --fix-missing && \
+    apt-get install -y ros-humble-rviz2 \
     ros-humble-ackermann-msgs \
     ros-humble-nav-msgs \
     ros-humble-sensor-msgs \
@@ -52,17 +61,11 @@ RUN apt-get update --fix-missing && \
     ros-humble-joy \
     ros-humble-rmw-cyclonedds-cpp \
     ros-humble-joint-state-publisher \
-    ros-humble-foxglove-bridge \
-    x11-apps \
-    x11-apps xterm \
-    clang-format \
-    openssh-client \
-    iputils-ping \
-    libnss-mdns
+    ros-humble-foxglove-bridge
 
 
 # Fix for 'no module name 'numba' with docker compose 2.40
-RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow "matplotlib<=3.8" "cvxpy==1.4" "scikit-image<0.20"
+RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow "matplotlib<=3.8" "cvxpy==1.4" "scikit-image<0.20" foxglove-ros-client-py
 
 RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
 
