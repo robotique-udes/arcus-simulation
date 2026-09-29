@@ -52,6 +52,7 @@ RUN apt-get update --fix-missing && \
     ros-humble-joy \
     ros-humble-rmw-cyclonedds-cpp \
     ros-humble-joint-state-publisher \
+    ros-humble-foxglove-bridge \
     x11-apps \
     x11-apps xterm \
     clang-format \
