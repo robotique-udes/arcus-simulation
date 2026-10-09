@@ -62,7 +62,8 @@ bridge:
     # teleop
     kb_teleop: True
 
-    #Use simulated localization (EKF + AMCL)
-    use_sim_localization: False
+    #Use simulated localization (EKF + PF)
+    use_sim_localization: True
     #Run slam
     run_slam: False #Overwrites localization if true
+
