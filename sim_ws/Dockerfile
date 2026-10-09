@@ -65,7 +65,7 @@ RUN apt-get update --fix-missing && \
 
 
 # Fix for 'no module name 'numba' with docker compose 2.40
-RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow "matplotlib<=3.8" "cvxpy==1.4" "scikit-image<0.20" foxglove-ros-client-py
+RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow "matplotlib<=3.8" "cvxpy==1.4" "scikit-image<0.20" websockets
 
 RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
 
