@@ -1,3 +1,15 @@
+# Example YAML:
+
+#   foxglove_ros_adapter:
+#     ros__parameters:
+#       url: "ws://robot-ip:8765"
+#       from_remote:
+#         - "/scan"
+#         - "/odom"
+#         - "/camera/.*"
+#       to_remote:
+#         - "/cmd_vel:geometry_msgs/msg/Twist"
+#       local_prefix: "/robot"
 foxglove_adapter:
     ros__parameters:
       url: "ws://arcus-jetson.local:8765"
