@@ -76,16 +76,16 @@ def generate_launch_description():
         executable='particle_filter_node',
         name='particle_filter',
         parameters=[os.path.join(
-            get_package_share_directory('particle_filter'),
+            get_package_share_directory('f1tenth_gym_ros'),
             'config',
-            'localize_sim.yaml')]
+            'pf.yaml')]
     )
-        
     ego_robot_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
         name='ego_robot_state_publisher',
-        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'ego_racecar.xacro')])}],
+        parameters=[{'robot_description': Command(['xacro ', os.path.join(get_package_share_directory('f1tenth_gym_ros'), 'launch', 'ego_racecar.xacro')])},
+                    {'use_sim_time': True}],
         remappings=[('/robot_description', 'ego_robot_description')]
     )
     opp_robot_publisher = Node(
