@@ -61,31 +61,6 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy
 # get_message("pkg/msg/Type") returns the Python class for a ROS 2 message type
 from rosidl_runtime_py.utilities import get_message
 
-# These imports are NOT needed by the logic below: message classes are looked
-# up dynamically with get_message(). They are only used by the two lists that
-# follow. They also force these packages to be installed to start the script.
-from ackermann_msgs.msg import AckermannDriveStamped
-from std_msgs.msg import Bool
-from arcus_msgs.msg import ErrorCode
-
-# NOTE: the two lists below are documentation only. Nothing in the code reads
-# them. The topics that are really forwarded come from the `to_remote` and
-# `from_remote` parameters.
-
-# Topics leaving Docker -> heading to Physical Robot
-# (these are what you would pass in the `to_remote` parameter)
-TOPICS_TO_ROBOT = [
-    ('/controller/drive', 'ackermann_msgs/msg/AckermannDriveStamped', AckermannDriveStamped),
-    ('/deadman_active', 'std_msgs/msg/Bool', Bool)
-]
-
-# Topics leaving Robot -> arriving into Docker
-# (these are what you would match with the `from_remote` parameter)
-TOPICS_FROM_ROBOT = [
-    ('/master_error_code', 'arcus_msgs/msg/ErrorCode', ErrorCode),
-    ('/master_hearbeat', 'std_msgs/msg/Bool', Bool)
-]
-
 
 # --- Foxglove WebSocket protocol constants -----------------------------------
 
