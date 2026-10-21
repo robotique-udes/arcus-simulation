@@ -68,8 +68,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 10.569287300109863
-        Min Value: -1.7411123514175415
+        Max Value: 0.05302200838923454
+        Min Value: -11.071290969848633
         Value: true
       Axis: X
       Channel Name: intensity
@@ -357,10 +357,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.4953981637954712
+      Pitch: 0.5853986144065857
       Target Frame: <Fixed Frame>
       Value: ThirdPersonFollower (rviz_default_plugins)
-      Yaw: 3.1104137897491455
+      Yaw: 4.970419406890869
     Saved: ~
 Window Geometry:
   Displays:
