@@ -62,18 +62,7 @@ def generate_launch_description():
                     {'output': 'screen'},
                     {'use_sim_time': True}]
     )
-    if simulated_localization and not run_slam:
-        nav_lifecycle_node = Node(
-            package='nav2_lifecycle_manager',
-            executable='lifecycle_manager',
-            name='lifecycle_manager_localization',
-            output='screen',
-            parameters=[{'use_sim_time': True},
-                        {'autostart': True},
-                        {'node_names': ['map_server', 'amcl']}]
-        )
-    else:
-        nav_lifecycle_node = Node(
+    nav_lifecycle_node = Node(
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',
             name='lifecycle_manager_localization',
@@ -82,6 +71,15 @@ def generate_launch_description():
                         {'autostart': True},
                         {'node_names': ['map_server']}]
         )
+    pf_node = Node(
+        package='particle_filter',
+        executable='particle_filter_node',
+        name='particle_filter',
+        parameters=[os.path.join(
+            get_package_share_directory('f1tenth_gym_ros'),
+            'config',
+            'pf.yaml')]
+    )
     ego_robot_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -116,21 +114,6 @@ def generate_launch_description():
             ('/odometry/filtered', '/odometry/filtered')
         ]
     )
-    amcl_node = Node(
-        package="nav2_amcl",
-        executable="amcl",
-        name="amcl",
-        output="screen",
-        parameters=[os.path.join(
-            get_package_share_directory('f1tenth_gym_ros'),
-            'config',
-            'amcl.yaml'
-        )],
-        remappings=[
-            ("/odom", "/odometry/filtered")
-        ],
-        arguments=['--ros-args', '--log-level', 'warn']
-    )
 
     slam_toolbox_node = Node(
         package='slam_toolbox',
@@ -161,7 +144,7 @@ def generate_launch_description():
         ld.add_action(opp_robot_publisher)
     if simulated_localization and not run_slam:
         ld.add_action(ekf_node)
-        ld.add_action(amcl_node)
+        ld.add_action(pf_node)
     elif run_slam:
         ld.add_action(slam_toolbox_node)
         ld.add_action(ekf_node)
