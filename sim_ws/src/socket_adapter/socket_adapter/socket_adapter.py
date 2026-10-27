@@ -105,7 +105,7 @@ class Adapter:
 
         node.declare_parameter(
             "url",
-            "ws://127.0.0.1:8765",
+            "ws://localhost:8765",
         )
 
         node.declare_parameter(
