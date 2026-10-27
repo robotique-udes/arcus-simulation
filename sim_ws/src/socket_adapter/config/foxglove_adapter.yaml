@@ -16,8 +16,8 @@ socket_adapter:
     from_remote:
       - "/master_error_code"
       - "/master_hearbeat"
-      - "/joy"
     to_remote:
       - "/controller/drive:ackermann_msgs/msg/AckermannDriveStamped"
       - "/deadman_active:std_msgs/msg/Bool"
+      - "/joy:sensor_msgs/msg/Joy"
     local_prefix: ""
