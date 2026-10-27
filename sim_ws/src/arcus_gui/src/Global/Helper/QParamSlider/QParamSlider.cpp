@@ -76,3 +76,17 @@ void QParamSlider::onApplyClicked() {
         }
     );
 }
+
+void QParamSlider::updateValue(float value)
+{
+    value = std::clamp(value, _min, _max);
+
+    _ui.slider->blockSignals(true);
+    _ui.currentValue->blockSignals(true);
+
+    _ui.currentValue->setText(QString::number(value));
+    _ui.slider->setValue(static_cast<int>(value / _precision));
+
+    _ui.currentValue->blockSignals(false);
+    _ui.slider->blockSignals(false);
+}
