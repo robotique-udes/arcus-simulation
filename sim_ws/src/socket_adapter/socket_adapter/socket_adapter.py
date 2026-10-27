@@ -57,6 +57,7 @@ import threading  # rclpy.spin runs in its own thread next to the asyncio loop
 import rclpy
 import websockets
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 # get_message("pkg/msg/Type") returns the Python class for a ROS 2 message type
 from rosidl_runtime_py.utilities import get_message
@@ -66,7 +67,7 @@ from rosidl_runtime_py.utilities import get_message
 
 # Name of the WebSocket sub-protocol. The server refuses clients that do not
 # announce it during the handshake.
-SUBPROTOCOL = "foxglove.websocket.v1"
+SUBPROTOCOL = "foxglove.sdk.v1"
 
 # First byte of every BINARY message identifies its kind.
 # Server -> client: 0x01 = "message data" (a ROS message from a subscribed topic)
@@ -104,7 +105,7 @@ class Adapter:
 
         node.declare_parameter(
             "url",
-            "ws://arcus-jetson.local:8765",
+            "ws://127.0.0.1:8765",
         )
 
         node.declare_parameter(
@@ -114,7 +115,7 @@ class Adapter:
 
         node.declare_parameter(
             "to_remote",
-            [],
+            Parameter.Type.STRING_ARRAY,
         )
 
         node.declare_parameter(
@@ -447,7 +448,7 @@ class Adapter:
             ) as e:
 
                 self.log.warning(
-                    f"connection lost: {e}; "
+                    f"connection lost at {self.url}: {e}; "
                     f"retrying in {delay:.0f}s"
                 )
 
@@ -533,7 +534,7 @@ def main(args=None):
     rclpy.init(args=args)
 
     node = rclpy.create_node(
-        "foxglove_ros_adapter"
+        "socket_adapter"
     )
 
     # Dedicated asyncio event loop for the WebSocket side.
