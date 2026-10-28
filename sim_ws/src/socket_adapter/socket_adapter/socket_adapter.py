@@ -44,6 +44,13 @@ Parameters (ROS 2 parameters, set with `--ros-args -p name:=value`):
   local_prefix:
     Prefix added to mirrored remote topics locally.
     Example: "/robot"
+
+  latched_topics:
+    List of regex patterns (full-match, on the remote topic name) for mirrored
+    topics to republish with TRANSIENT_LOCAL durability ("latched"), so that
+    subscribers that ask for it (RViz, robot_state_publisher users, ...) get
+    the last message even if they start late.
+    Default: ["/tf_static", "/map", ".*_description"]
 """
 
 # --- Standard library --------------------------------------------------------
@@ -58,7 +65,7 @@ import rclpy
 import websockets
 from rclpy.node import Node
 from rclpy.parameter import Parameter
-from rclpy.qos import QoSProfile, ReliabilityPolicy
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 # get_message("pkg/msg/Type") returns the Python class for a ROS 2 message type
 from rosidl_runtime_py.utilities import get_message
 
@@ -123,11 +130,17 @@ class Adapter:
             "",
         )
 
+        node.declare_parameter(
+            "latched_topics",
+            ["/tf_static", "/map", ".*_description"],
+        )
+
         # Read the final values (defaults or overrides) into plain attributes.
         self.url = node.get_parameter("url").value
         self.from_remote = node.get_parameter("from_remote").value
         self.to_remote_specs = node.get_parameter("to_remote").value
         self.local_prefix = node.get_parameter("local_prefix").value
+        self.latched_topics = node.get_parameter("latched_topics").value
 
         # Fail early with a clear message if the URL was set to an empty string.
         if not self.url:
@@ -140,6 +153,10 @@ class Adapter:
         self.patterns = [
             re.compile(pattern)
             for pattern in self.from_remote
+        ]
+        self.latched_patterns = [
+            re.compile(pattern)
+            for pattern in self.latched_topics
         ]
 
         # Queue of messages waiting to be sent to the robot.
@@ -351,9 +368,22 @@ class Adapter:
             # Create the local publisher only once, even if the bridge
             # re-advertises the same topic or we reconnect.
             if local_topic not in self.local_pubs:
+                # Topics like /tf_static, /map or robot descriptions are
+                # published once and "latched" (TRANSIENT_LOCAL) on the robot.
+                # Their subscribers require TRANSIENT_LOCAL too: a VOLATILE
+                # publisher is incompatible and they would receive nothing.
+                latched = any(
+                    pattern.fullmatch(topic)
+                    for pattern in self.latched_patterns
+                )
                 qos = QoSProfile(
                     depth=10,
                     reliability=ReliabilityPolicy.RELIABLE,
+                    durability=(
+                        DurabilityPolicy.TRANSIENT_LOCAL
+                        if latched
+                        else DurabilityPolicy.VOLATILE
+                    ),
                 )
 
                 self.local_pubs[local_topic] = (
@@ -382,6 +412,7 @@ class Adapter:
             self.log.info(
                 f"remote -> local: "
                 f"{topic} -> {local_topic}"
+                + (" (latched)" if latched else "")
             )
 
         # One single "subscribe" request for all the channels collected above.

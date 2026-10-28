@@ -12,12 +12,13 @@
 #       local_prefix: "/robot"
 socket_adapter:
   ros__parameters:
-    url: "ws://localhost:8765"
+    url: "ws://192.168.50.92:8765"
     from_remote:
-      - "/master_error_code"
-      - "/master_hearbeat"
+      - ".*"
     to_remote:
       - "/controller/drive:ackermann_msgs/msg/AckermannDriveStamped"
       - "/deadman_active:std_msgs/msg/Bool"
       - "/joy:sensor_msgs/msg/Joy"
+      - "/initialpose:geometry_msgs/msg/PoseWithCovarianceStamped"
+      - "/parameter_events:rcl_interfaces/msg/ParameterEvent"
     local_prefix: ""

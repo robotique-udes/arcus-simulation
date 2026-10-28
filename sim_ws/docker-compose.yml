@@ -20,9 +20,9 @@ services:
       - MPLBACKEND=TkAgg
       - MESA_GL_VERSION_OVERRIDE=3.3
       - MESA_GLSL_VERSION_OVERRIDE=330
-      - ROS_DOMAIN_ID=42
+      - ROS_DOMAIN_ID=1
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - "CYCLONEDDS_URI=<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
+      - "CYCLONEDDS_URI=<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp2s0\"/></Interfaces></General></Domain></CycloneDDS>"
 
     network_mode: host
     stdin_open: true
@@ -30,3 +30,4 @@ services:
 
     working_dir: /sim_ws
 
+  
