@@ -19,6 +19,17 @@ remote -> local : subscribes to channels advertised by the bridge (CDR encoding)
                   and republishes the raw bytes on local ROS 2 topics.
 local -> remote : subscribes to local ROS 2 topics (raw/serialized) and publishes
                   them to the bridge using the "clientPublish" capability.
+services        : every service advertised by the bridge gets a local "proxy"
+                  service with the same name and type. A local call is
+                  forwarded to the robot ("services" capability) and the
+                  robot's answer is returned to the local caller.
+parameters      : ROS 2 parameters are just services (/<node>/get_parameters,
+                  /<node>/set_parameters, ...), so they are forwarded like any
+                  other service. On top of that, an empty local "stand-in" node
+                  is created for each remote node, because `ros2 param` refuses
+                  to talk to a node it cannot see in the local graph. Result:
+                    ros2 param list / get / set / dump /<robot_node> ...
+                  work from this machine as if the node were local.
 
 Messages are never decoded: they are forwarded as raw CDR bytes (the binary
 serialization format ROS 2 uses on the wire). That is fast and means the script
@@ -51,10 +62,30 @@ Parameters (ROS 2 parameters, set with `--ros-args -p name:=value`):
     subscribers that ask for it (RViz, robot_state_publisher users, ...) get
     the last message even if they start late.
     Default: ["/tf_static", "/map", ".*_description"]
+
+  services_from_remote:
+    List of regex patterns (full-match) for remote services to make callable
+    locally. They get the same local_prefix as topics. A remote service is
+    skipped if a local service with the same name already exists (e.g. the
+    same node runs on both machines), to avoid two servers on one name.
+    Default: [".*"]
+
+  param_nodes:
+    If true, create a local stand-in node for every remote node whose
+    parameter services are forwarded, so that `ros2 param` finds it.
+    Default: true
+
+  service_timeout:
+    Seconds to wait for the robot to answer a forwarded service call. On
+    timeout or error a warning is logged and the caller gets an empty
+    (default) response, because ROS 2 services have no way to return an error.
+    Default: 5.0
 """
 
 # --- Standard library --------------------------------------------------------
 import asyncio    # event loop used for the WebSocket connection
+import concurrent.futures  # result of a coroutine started from another thread
+import itertools  # endless counter for service call ids
 import json       # the protocol's control messages are JSON text
 import re         # regular expressions to select which remote topics to mirror
 import struct     # pack/unpack the binary message headers of the protocol
@@ -63,11 +94,18 @@ import threading  # rclpy.spin runs in its own thread next to the asyncio loop
 # --- Third-party / ROS 2 -----------------------------------------------------
 import rclpy
 import websockets
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.signals import SignalHandlerOptions
+# Convert ROS messages to/from CDR bytes (needed for services, which rclpy
+# cannot handle in raw form like topics)
+from rclpy.serialization import deserialize_message, serialize_message
 # get_message("pkg/msg/Type") returns the Python class for a ROS 2 message type
-from rosidl_runtime_py.utilities import get_message
+# get_service("pkg/srv/Type") does the same for a service type
+from rosidl_runtime_py.utilities import get_message, get_service
 
 
 # --- Foxglove WebSocket protocol constants -----------------------------------
@@ -88,6 +126,24 @@ OP_CLIENT_MESSAGE = 0x01
 #   Q = 8 bytes timestamp in nanoseconds
 # followed directly by the message payload (the raw CDR bytes).
 HEADER = struct.Struct("<BIQ")
+
+# Client -> server: 0x02 = "service call request"
+OP_SERVICE_CALL_REQUEST = 0x02
+# Server -> client: 0x03 = "service call response"
+OP_SERVICE_CALL_RESPONSE = 0x03
+
+# Layout of a service call request AND response (little-endian):
+#   B = 1 byte  opcode
+#   I = 4 bytes service id (the bridge's number for the service)
+#   I = 4 bytes call id (our number, to match a response to its request)
+#   I = 4 bytes length of the encoding string that follows
+# followed by the encoding string (b"cdr") and then the CDR payload.
+SERVICE_HEADER = struct.Struct("<BIII")
+CDR = b"cdr"
+
+# Every node has these parameter services; we use get_parameters to spot the
+# remote nodes that need a local stand-in.
+GET_PARAMETERS_SUFFIX = "/get_parameters"
 
 
 class Adapter:
@@ -135,12 +191,32 @@ class Adapter:
             ["/tf_static", "/map", ".*_description"],
         )
 
+        node.declare_parameter(
+            "services_from_remote",
+            [".*"],
+        )
+
+        node.declare_parameter(
+            "param_nodes",
+            True,
+        )
+
+        node.declare_parameter(
+            "service_timeout",
+            5.0,
+        )
+
         # Read the final values (defaults or overrides) into plain attributes.
         self.url = node.get_parameter("url").value
         self.from_remote = node.get_parameter("from_remote").value
         self.to_remote_specs = node.get_parameter("to_remote").value
         self.local_prefix = node.get_parameter("local_prefix").value
         self.latched_topics = node.get_parameter("latched_topics").value
+        self.services_from_remote = (
+            node.get_parameter("services_from_remote").value
+        )
+        self.param_nodes_enabled = node.get_parameter("param_nodes").value
+        self.service_timeout = node.get_parameter("service_timeout").value
 
         # Fail early with a clear message if the URL was set to an empty string.
         if not self.url:
@@ -157,6 +233,10 @@ class Adapter:
         self.latched_patterns = [
             re.compile(pattern)
             for pattern in self.latched_topics
+        ]
+        self.service_patterns = [
+            re.compile(pattern)
+            for pattern in self.services_from_remote
         ]
 
         # Queue of messages waiting to be sent to the robot.
@@ -204,6 +284,28 @@ class Adapter:
 
         # Becomes True only if the bridge says it accepts messages from clients.
         self.remote_can_publish = False
+
+        # The WebSocket of the current connection (None while disconnected).
+        # Service calls need it to send their request.
+        self.ws = None
+
+        # Service proxies. All of these are only touched from the asyncio
+        # thread, so they need no lock.
+        #   local service name -> (local rclpy service, bridge service id)
+        self.local_srvs = {}
+        #   bridge service id -> local service name
+        self.remote_services = {}
+        #   get_parameters local service name -> local stand-in node
+        self.param_nodes = {}
+        #   call id -> asyncio future that receives the response bytes
+        self.pending_calls = {}
+        # Unique call ids: 1, 2, 3, ...
+        self.call_ids = itertools.count(1)
+
+        # Proxy service callbacks wait (block) for the robot's answer. A
+        # reentrant group lets the multi-threaded executor run several of them
+        # at once, and keeps a slow call from blocking topic callbacks.
+        self.service_group = ReentrantCallbackGroup()
 
         # Start listening to the local topics that must be sent to the robot.
         self._setup_local_subscriptions()
@@ -365,17 +467,20 @@ class Adapter:
             # Name of the topic on THIS machine (optionally prefixed).
             local_topic = self.local_prefix + topic
 
+            # Topics like /tf_static, /map or robot descriptions are
+            # published once and "latched" (TRANSIENT_LOCAL) on the robot.
+            # Their subscribers require TRANSIENT_LOCAL too: a VOLATILE
+            # publisher is incompatible and they would receive nothing.
+            # (Computed outside the `if` below: the log line needs it even
+            # when the publisher already exists, e.g. after a reconnection.)
+            latched = any(
+                pattern.fullmatch(topic)
+                for pattern in self.latched_patterns
+            )
+
             # Create the local publisher only once, even if the bridge
             # re-advertises the same topic or we reconnect.
             if local_topic not in self.local_pubs:
-                # Topics like /tf_static, /map or robot descriptions are
-                # published once and "latched" (TRANSIENT_LOCAL) on the robot.
-                # Their subscribers require TRANSIENT_LOCAL too: a VOLATILE
-                # publisher is incompatible and they would receive nothing.
-                latched = any(
-                    pattern.fullmatch(topic)
-                    for pattern in self.latched_patterns
-                )
                 qos = QoSProfile(
                     depth=10,
                     reliability=ReliabilityPolicy.RELIABLE,
@@ -427,8 +532,19 @@ class Adapter:
             )
 
     def _handle_binary(self, data: bytes):
-        """Handle one binary frame received from the bridge (= one ROS message)."""
-        # Ignore frames that are too short or not of the "message data" kind.
+        """Handle one binary frame received from the bridge.
+
+        It is either one ROS message of a subscribed topic, or the answer to
+        one of our service calls.
+        """
+        if not data:
+            return
+
+        if data[0] == OP_SERVICE_CALL_RESPONSE:
+            self._handle_service_response(data)
+            return
+
+        # Ignore frames that are too short or of an unknown kind.
         if (
             len(data) < HEADER.size
             or data[0] != OP_MESSAGE_DATA
@@ -445,6 +561,238 @@ class Adapter:
             # Everything after the header is the raw CDR message. rclpy accepts
             # serialized bytes directly in publish().
             pub.publish(data[HEADER.size:])
+
+    # ------------------------------------------------------------
+    # services (and parameters) remote -> local
+    # ------------------------------------------------------------
+    # Flow: bridge "advertiseServices" -> local proxy service
+    #       local call -> proxy callback (rclpy thread) -> _call_remote
+    #       (asyncio thread) -> WebSocket -> robot -> response frame ->
+    #       _handle_service_response -> proxy callback returns the response
+
+    def _service_wanted(self, name: str) -> bool:
+        """Decide whether a remote service should be callable locally."""
+        return any(
+            pattern.fullmatch(name)
+            for pattern in self.service_patterns
+        )
+
+    def _handle_advertise_services(self, services):
+        """React to the bridge announcing services the robot offers."""
+        # Services that exist locally without us. Mirroring one of them would
+        # put two servers on the same name, and a caller would get whichever
+        # answers first. Typical case: the same node runs on both machines,
+        # so both have e.g. /joy/get_parameters.
+        foreign_services = {
+            name
+            for name, _types in self.node.get_service_names_and_types()
+            if name not in self.local_srvs
+        }
+
+        for s in services:
+            name = s["name"]
+            type_str = s["type"]
+            local_name = self.local_prefix + name
+
+            # Only CDR is forwarded (same as topics). Older bridges do not
+            # give the encoding; it is CDR for ROS 2 then.
+            encoding = s.get("request", {}).get("encoding", "cdr")
+            if encoding != "cdr" or not self._service_wanted(name):
+                continue
+
+            # Same service advertised again (it can happen when the robot's
+            # graph changes): just remember the new id.
+            if local_name in self.local_srvs:
+                srv, old_id = self.local_srvs[local_name]
+                self.remote_services.pop(old_id, None)
+                self.local_srvs[local_name] = (srv, s["id"])
+                self.remote_services[s["id"]] = local_name
+                continue
+
+            if local_name in foreign_services:
+                self.log.warning(
+                    f"skip service {name}: {local_name} already exists "
+                    f"locally (set local_prefix to mirror it)"
+                )
+                continue
+
+            # Python class of the service type, e.g. std_srvs/srv/SetBool.
+            # Skip the service if its package is not installed locally.
+            try:
+                srv_cls = get_service(type_str)
+            except Exception as e:
+                self.log.warning(
+                    f"skip service {name}: cannot load {type_str} ({e})"
+                )
+                continue
+
+            # `local_name=...` and `srv_cls=...` freeze the current values
+            # (same late-binding pitfall as in _setup_local_subscriptions).
+            def cb(request, response, local_name=local_name, srv_cls=srv_cls):
+                # Runs in an rclpy executor thread. Start the remote call in
+                # the asyncio loop and block this thread until it is done.
+                future = asyncio.run_coroutine_threadsafe(
+                    self._call_remote(
+                        local_name,
+                        serialize_message(request),
+                    ),
+                    self.loop,
+                )
+                try:
+                    payload = future.result(timeout=self.service_timeout)
+                    return deserialize_message(payload, srv_cls.Response)
+                except concurrent.futures.TimeoutError:
+                    future.cancel()
+                    self.log.warning(
+                        f"service {local_name}: no answer from the robot "
+                        f"after {self.service_timeout}s"
+                    )
+                except Exception as e:
+                    self.log.warning(f"service {local_name} failed: {e}")
+                # ROS 2 services cannot return an error: send an empty
+                # (default) response so the caller is not left hanging.
+                return response
+
+            srv = self.node.create_service(
+                srv_cls,
+                local_name,
+                cb,
+                callback_group=self.service_group,
+            )
+            self.local_srvs[local_name] = (srv, s["id"])
+            self.remote_services[s["id"]] = local_name
+
+            self.log.info(f"service remote -> local: {name} -> {local_name}")
+
+            if (
+                self.param_nodes_enabled
+                and local_name.endswith(GET_PARAMETERS_SUFFIX)
+            ):
+                self._add_param_node(local_name)
+
+    def _add_param_node(self, get_parameters_name: str):
+        """Create an empty local node named like the remote node.
+
+        `ros2 param` first checks that the node exists in the graph, and only
+        then calls its parameter services. The stand-in node makes that check
+        pass; the actual work is done by the forwarded parameter services.
+        """
+        # "/robot/controller/get_parameters" -> "/robot/controller"
+        full_name = get_parameters_name[:-len(GET_PARAMETERS_SUFFIX)]
+        namespace, _, name = full_name.rpartition("/")
+        namespace = namespace or "/"
+
+        local_nodes = {
+            namespace_.rstrip("/") + "/" + name_
+            for name_, namespace_ in self.node.get_node_names_and_namespaces()
+        }
+        if full_name in local_nodes:
+            # A real local node already has that name (should not happen,
+            # since its services would have blocked the forwarding).
+            return
+
+        try:
+            self.param_nodes[get_parameters_name] = rclpy.create_node(
+                name,
+                namespace=namespace,
+                context=self.node.context,
+                # It must not create its own parameter services: they would
+                # clash with the forwarded ones.
+                start_parameter_services=False,
+                enable_rosout=False,
+            )
+        except Exception as e:
+            self.log.warning(f"cannot create stand-in node {full_name}: {e}")
+            return
+
+        self.log.info(f"parameters remote -> local: node {full_name}")
+
+    def _remove_service(self, local_name: str):
+        """Destroy a proxy service (and its stand-in node, if any)."""
+        srv, remote_id = self.local_srvs.pop(local_name)
+        self.remote_services.pop(remote_id, None)
+        self.node.destroy_service(srv)
+
+        param_node = self.param_nodes.pop(local_name, None)
+        if param_node is not None:
+            param_node.destroy_node()
+
+    def _handle_unadvertise_services(self, service_ids):
+        """The robot no longer offers these services: remove the proxies."""
+        for service_id in service_ids:
+            local_name = self.remote_services.get(service_id)
+            if local_name is not None:
+                self._remove_service(local_name)
+                self.log.info(f"service removed: {local_name}")
+
+    async def _call_remote(self, local_name: str, request: bytes) -> bytes:
+        """Send one service request to the bridge and wait for the answer.
+
+        Runs in the asyncio thread. Returns the CDR bytes of the response, or
+        raises if the bridge reports a failure or the connection drops.
+        """
+        entry = self.local_srvs.get(local_name)
+        if entry is None or self.ws is None:
+            raise ConnectionError("not connected to the bridge")
+        _srv, service_id = entry
+
+        call_id = next(self.call_ids)
+        future = self.loop.create_future()
+        self.pending_calls[call_id] = future
+
+        try:
+            await self.ws.send(
+                SERVICE_HEADER.pack(
+                    OP_SERVICE_CALL_REQUEST,
+                    service_id,
+                    call_id,
+                    len(CDR),
+                ) + CDR + request
+            )
+            # Completed by _handle_service_response / serviceCallFailure.
+            return await future
+        finally:
+            # Also runs on cancellation (timeout in the rclpy thread).
+            self.pending_calls.pop(call_id, None)
+
+    def _handle_service_response(self, data: bytes):
+        """Hand a service response frame to the call waiting for it."""
+        if len(data) < SERVICE_HEADER.size:
+            return
+
+        _, _service_id, call_id, encoding_len = (
+            SERVICE_HEADER.unpack_from(data)
+        )
+        future = self.pending_calls.get(call_id)
+
+        if future is not None and not future.done():
+            # Skip the header and the encoding string; the rest is CDR.
+            future.set_result(data[SERVICE_HEADER.size + encoding_len:])
+
+    def _handle_service_failure(self, msg):
+        """The bridge could not perform one of our calls."""
+        future = self.pending_calls.get(msg.get("callId"))
+
+        if future is not None and not future.done():
+            future.set_exception(
+                RuntimeError(msg.get("message", "service call failed"))
+            )
+
+    def _clear_services(self):
+        """Connection lost: fail pending calls and remove every proxy.
+
+        The bridge gives new service ids on the next connection and will
+        advertise the services again, so the proxies are rebuilt then.
+        """
+        for future in self.pending_calls.values():
+            if not future.done():
+                future.set_exception(
+                    ConnectionError("connection to the bridge lost")
+                )
+        self.pending_calls.clear()
+
+        for local_name in list(self.local_srvs):
+            self._remove_service(local_name)
 
     # ------------------------------------------------------------
     # connection loop
@@ -494,6 +842,7 @@ class Adapter:
         # are no longer valid on the bridge side.
         self.sub_to_pub.clear()
         self.remote_can_publish = False
+        self.ws = ws
 
         # Generator of unique subscription ids: 1, 2, 3, ...
         counter = iter(range(1, 1 << 31))
@@ -548,6 +897,17 @@ class Adapter:
                         next_sub_id,
                     )
 
+                elif op == "advertiseServices":
+                    # The bridge lists the services the robot offers
+                    # (including every node's parameter services).
+                    self._handle_advertise_services(msg["services"])
+
+                elif op == "unadvertiseServices":
+                    self._handle_unadvertise_services(msg["serviceIds"])
+
+                elif op == "serviceCallFailure":
+                    self._handle_service_failure(msg)
+
                 elif op == "status":
                     # Informational messages and errors from the bridge.
                     self.log.info(
@@ -558,11 +918,19 @@ class Adapter:
         finally:
             # Connection over: stop the sender task so it doesn't linger.
             sender.cancel()
+            self.ws = None
+            self._clear_services()
 
 
 def main(args=None):
     # Initialize the ROS 2 client library, then create the node.
-    rclpy.init(args=args)
+    # rclpy's own Ctrl+C handler only shuts ROS down: the asyncio loop would
+    # keep running and the program would never exit. Without it, Python raises
+    # KeyboardInterrupt in the main thread and the shutdown code below runs.
+    rclpy.init(
+        args=args,
+        signal_handler_options=SignalHandlerOptions.NO,
+    )
 
     node = rclpy.create_node(
         "socket_adapter"
@@ -580,12 +948,15 @@ def main(args=None):
         rclpy.shutdown()
         raise
 
-    # ROS 2 callbacks (local subscriptions) need rclpy.spin running. It blocks,
-    # so it lives in its own daemon thread (daemon = dies with the program),
-    # while the main thread runs the asyncio loop below.
+    # ROS 2 callbacks (local subscriptions, proxy services) need an executor
+    # spinning. Multi-threaded, because a proxy service callback blocks while
+    # it waits for the robot's answer. Spinning blocks, so it lives in its own
+    # daemon thread (daemon = dies with the program), while the main thread
+    # runs the asyncio loop below.
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
     spin_thread = threading.Thread(
-        target=rclpy.spin,
-        args=(node,),
+        target=executor.spin,
         daemon=True,
     )
 
@@ -602,6 +973,7 @@ def main(args=None):
 
     finally:
         # Orderly shutdown.
+        executor.shutdown()
         loop.close()
         node.destroy_node()
         rclpy.shutdown()

@@ -10,6 +10,10 @@
 #       to_remote:
 #         - "/cmd_vel:geometry_msgs/msg/Twist"
 #       local_prefix: "/robot"
+#       services_from_remote:      # remote services callable locally
+#         - ".*"                   # (includes every node's parameter services)
+#       param_nodes: true          # local stand-in nodes so `ros2 param` works
+#       service_timeout: 5.0       # seconds to wait for the robot's answer
 socket_adapter:
   ros__parameters:
     url: "ws://192.168.50.92:8765"
