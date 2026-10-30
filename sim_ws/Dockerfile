@@ -61,9 +61,11 @@ RUN apt-get update --fix-missing && \
 
 
 # Fix for 'no module name 'numba' with docker compose 2.40
-RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow "matplotlib<=3.8" "cvxpy==1.4" "scikit-image<0.20"
+RUN pip3 install transforms3d gymnasium numba scipy pyglet pillow "matplotlib<=3.8" "cvxpy==1.4" "scikit-image<0.20" "Cython==3.0.12"
 
 RUN echo "export RCUTILS_COLORIZED_OUTPUT=1 " >> ~/.bashrc
+
+ENV PYTHONPATH=/sim_ws/src/arcus/range_libc/pywrapper:${PYTHONPATH}
 
 RUN echo -e "b() { \n    source /opt/ros/humble/setup.bash\n    cd /sim_ws || exit \n   colcon build --packages-select range_libc --cmake-args -DWITH_CUDA=OFF \n colcon build --packages-select particle_filter --cmake-args -DWITH_CUDA=OFF \n colcon build "$@" --symlink-install\n    source install/local_setup.bash\n   \n}" >> ~/.bashrc
 
