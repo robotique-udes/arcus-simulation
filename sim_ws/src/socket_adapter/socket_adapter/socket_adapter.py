@@ -94,6 +94,7 @@ import threading  # rclpy.spin runs in its own thread next to the asyncio loop
 # --- Third-party / ROS 2 -----------------------------------------------------
 import rclpy
 import websockets
+from std_msgs.msg import String
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
@@ -159,6 +160,14 @@ class Adapter:
         self.node = node
         self.loop = loop              # the asyncio loop, needed for thread hand-off
         self.log = node.get_logger()  # ROS 2 logger (shows up in the console)
+        self.status_pub = node.create_publisher(
+            String,
+            "/socket_adapter/status",
+            QoSProfile(
+                depth=1,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            ),
+        )
 
         # ------------------------------------------------------------
         # ROS 2 parameters
@@ -309,6 +318,24 @@ class Adapter:
 
         # Start listening to the local topics that must be sent to the robot.
         self._setup_local_subscriptions()
+        self._publish_status(False, [])
+
+    def _publish_status(self, connected, channels):
+        """Publish the WebSocket state and currently advertised remote topics."""
+        msg = String()
+        msg.data = json.dumps(
+            {
+                "connected": connected,
+                "topics": [
+                    {
+                        "name": channel["topic"],
+                        "type": channel.get("schemaName", ""),
+                    }
+                    for channel in channels
+                ],
+            }
+        )
+        self.status_pub.publish(msg)
 
     # ------------------------------------------------------------
     # local -> remote
@@ -843,6 +870,7 @@ class Adapter:
         self.sub_to_pub.clear()
         self.remote_can_publish = False
         self.ws = ws
+        self._publish_status(True, [])
 
         # Generator of unique subscription ids: 1, 2, 3, ...
         counter = iter(range(1, 1 << 31))
@@ -891,6 +919,7 @@ class Adapter:
                 elif op == "advertise":
                     # The bridge lists the topics it can stream to us (sent
                     # after serverInfo, and again whenever topics appear).
+                    self._publish_status(True, msg["channels"])
                     await self._handle_advertise(
                         ws,
                         msg["channels"],
@@ -920,6 +949,7 @@ class Adapter:
             sender.cancel()
             self.ws = None
             self._clear_services()
+            self._publish_status(False, [])
 
 
 def main(args=None):

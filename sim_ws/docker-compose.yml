@@ -4,13 +4,7 @@ services:
     build: .
     container_name: arcus
     volumes:
-      - ../sim_ws/src/f1tenth_gym:/sim_ws/src/f1tenth_gym
-      - ../sim_ws/src/f1tenth_gym_ros:/sim_ws/src/f1tenth_gym_ros
-      - ../sim_ws/src/fake_imu:/sim_ws/src/fake_imu
-      - ../sim_ws/src/scripts:/sim_ws/src/scripts
-      - ../sim_ws/src/visualization:/sim_ws/src/visualization
-      - ../sim_ws/src/arcus_gui:/sim_ws/src/arcus_gui
-      - ../sim_ws/src/socket_adapter:/sim_ws/src/socket_adapter
+      - ../sim_ws/src:/sim_ws/src
       - ../../arcus:/sim_ws/src/arcus
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /etc/nsswitch.conf:/etc/nsswitch.conf:ro
@@ -22,7 +16,7 @@ services:
       - MESA_GLSL_VERSION_OVERRIDE=330
       - ROS_DOMAIN_ID=1
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - "CYCLONEDDS_URI=<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp2s0\"/></Interfaces></General></Domain></CycloneDDS>"
+      - ROS_LOCALHOST_ONLY=1
 
     network_mode: host
     stdin_open: true

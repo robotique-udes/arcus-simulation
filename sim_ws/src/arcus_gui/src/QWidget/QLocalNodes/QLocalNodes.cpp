@@ -4,9 +4,11 @@ QLocalNodesWidget::QLocalNodesWidget(std::shared_ptr<rclcpp::Node> node_, QWidge
     QWidget(parent_),
     _node(node_),
     _visualizationProcess(this, "Visualization", VISUALIZATION_PROCESS_CMD, true),
-    _controllerDriver(this, "Controller Driver", CONTROLLER_DRIVER, true)
+    _controllerDriver(this, "Controller Driver", CONTROLLER_DRIVER, true),
+    _socketAdapterProcess(this, "Socket Adapter", SOCKET_ADAPTER, true)
 {
     _ui.setupUi(this);
     _ui.buttonsLayout->addWidget(&_visualizationProcess);
     _ui.buttonsLayout->addWidget(&_controllerDriver);
+    _ui.buttonsLayout->addWidget(&_socketAdapterProcess);
 }
