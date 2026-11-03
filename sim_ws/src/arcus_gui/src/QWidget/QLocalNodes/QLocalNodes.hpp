@@ -13,6 +13,7 @@ class QLocalNodesWidget : public QWidget
 
     static constexpr const char* VISUALIZATION_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch f1tenth_gym_ros visualize_launch.py";
     static constexpr const char* CONTROLLER_DRIVER = "source /opt/ros/humble/setup.bash && ros2 launch drive_controller drive_controller.launch.py";
+    static constexpr const char* SOCKET_ADAPTER = "source /opt/ros/humble/setup.bash && ros2 launch socket_adapter socket.launch.py";
 
   public:
     QLocalNodesWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
@@ -26,6 +27,7 @@ class QLocalNodesWidget : public QWidget
 
     QProcessHandler _visualizationProcess;
     QProcessHandler _controllerDriver;
+    QProcessHandler _socketAdapterProcess;
 
     Ui::LocalNodes _ui;
 };
