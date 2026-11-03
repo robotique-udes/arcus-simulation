@@ -268,20 +268,32 @@
       </layout>
      </item>
      <item row="7" column="0">
-      <spacer name="verticalSpacer_3">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeType">
-        <enum>QSizePolicy::Expanding</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
+      <layout class="QHBoxLayout" name="connectionLayout">
+       <item>
+        <widget class="QLabel" name="connectionIndicator">
+         <property name="text">
+          <string>Remote: disconnected</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="topicCount">
+         <property name="text">
+          <string>Topics: 0</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="8" column="0">
+      <widget class="QListWidget" name="remoteTopics">
+       <property name="minimumSize">
         <size>
-         <width>20</width>
-         <height>13</height>
+         <width>0</width>
+         <height>100</height>
         </size>
        </property>
-      </spacer>
+      </widget>
      </item>
     </layout>
    </item>
