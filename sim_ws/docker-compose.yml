@@ -16,8 +16,7 @@ services:
       - MESA_GLSL_VERSION_OVERRIDE=330
       - ROS_DOMAIN_ID=1
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      # TODO: Need to verifiy if i can remove all cyclone dds interface by running sim in localhost only just like the car since we are using a bridge
-      - "CYCLONEDDS_URI=<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlp0s20f3\"/></Interfaces></General></Domain></CycloneDDS>"
+      - ROS_LOCALHOST_ONLY=1
 
     network_mode: host
     stdin_open: true
