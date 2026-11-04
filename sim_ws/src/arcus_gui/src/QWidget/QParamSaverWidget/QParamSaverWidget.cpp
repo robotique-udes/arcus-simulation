@@ -7,8 +7,8 @@ QParamSaverWidget::QParamSaverWidget(std::shared_ptr<rclcpp::Node> node_, QWidge
     _ui.setupUi(this);
 
     _paramSaverClient = _node->create_client<std_srvs::srv::Trigger>("/arcus/save_parameters");
-    _getParamClient = _node->create_client<rcl_interfaces::srv::GetParameters>("/param_saver_node/get_parameters");
-    _setParamClient = _node->create_client<rcl_interfaces::srv::SetParameters>("/param_saver_node/set_parameters");
+    _getParamClient = _node->create_client<rcl_interfaces::srv::GetParameters>("/arcus/param_saver_node/get_parameters");
+    _setParamClient = _node->create_client<rcl_interfaces::srv::SetParameters>("/arcus/param_saver_node/set_parameters");
 
     this->connectSignals();
     this->reloadProfiles();

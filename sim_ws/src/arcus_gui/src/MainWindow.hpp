@@ -2,6 +2,7 @@
 #define MAIN_WINDOWS_HPP
 
 #include <QMainWindow>
+#include <QScrollArea>
 #include <QShortcut>
 #include <QFrame>
 #include <QCloseEvent>
@@ -33,8 +34,9 @@ class MainWindow : public QMainWindow
 
     std::shared_ptr<rclcpp::Node> _node;
 
-    QWidget _centralWidget = QWidget(this); // main widget that holds all other widgets, set as central widget of QMainWindow
-    QGridLayout _gridLayout = QGridLayout(&_centralWidget); // grid layout to hold child widgets
+    QWidget* _centralWidget = new QWidget;
+    QScrollArea _scrollArea = QScrollArea(this);
+    QGridLayout _gridLayout = QGridLayout(_centralWidget);
 
     QArcusMaster _arcusMasterWidget;
     QCarInfoWidget _carInfoWidget;

@@ -12,8 +12,12 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _paramSaverWidget(guiNode_, this)
 {
     
-    this->setCentralWidget(&_centralWidget);
-    _centralWidget.setLayout(&_gridLayout);
+    _scrollArea.setWidget(_centralWidget);
+    _scrollArea.setWidgetResizable(true);
+    _scrollArea.setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    _scrollArea.setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    this->setCentralWidget(&_scrollArea);
+    _centralWidget->setLayout(&_gridLayout);
 
     _gridLayout.addWidget(&_arcusMasterWidget, 0, 0);
     _gridLayout.addWidget(&_carInfoWidget, 0, 1);
