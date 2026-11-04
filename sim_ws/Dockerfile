@@ -38,7 +38,8 @@ RUN apt-get update --fix-missing && \
     clang-format \
     openssh-client \
     iputils-ping \
-    libnss-mdns
+    libnss-mdns \
+    ssh-askpass
 
 RUN apt-get update --fix-missing && \
     apt-get install -y ros-humble-rviz2 \
