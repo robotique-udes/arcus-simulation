@@ -12,6 +12,8 @@ QPurePursuitWidget::QPurePursuitWidget(std::shared_ptr<rclcpp::Node> node_, QWid
     _brakeLongSlider(parent_, node_, BRAKE_LONG_PARAM_NAME, PURE_PURSUIT_NODE_NAME, BRAKE_LONG_MIN, BRAKE_LONG_MAX, BRAKE_LONG_DEFAULT, BRAKE_LONG_PRECISION)
 {
     _ui.setupUi(this);
+    _ui.applyAllPB->setFixedSize(96, 32);
+    QLayoutItem* verticalSpacer = _ui.sliderLayout->takeAt(1);
 
     _ui.sliderLayout->addWidget(&_maxLookaheadSlider);
     _ui.sliderLayout->addWidget(&_speedMaxSlider);
@@ -19,6 +21,10 @@ QPurePursuitWidget::QPurePursuitWidget(std::shared_ptr<rclcpp::Node> node_, QWid
     _ui.sliderLayout->addWidget(&_accelLatSlider);
     _ui.sliderLayout->addWidget(&_accelLongSlider);
     _ui.sliderLayout->addWidget(&_brakeLongSlider);
+    if (verticalSpacer)
+    {
+        _ui.sliderLayout->addItem(verticalSpacer);
+    }
 
     this->connectSignals();
 }
