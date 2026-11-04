@@ -16,6 +16,7 @@ find_package(ackermann_msgs REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 find_package(arcus_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # Qt auto-processing
 set(CMAKE_AUTOMOC ON)
@@ -53,7 +54,7 @@ add_executable(main_gui src/gui.cpp
 )
 
 # ROS2 dependencies
-ament_target_dependencies(main_gui rclcpp nav_msgs arcus_msgs ackermann_msgs std_srvs)
+ament_target_dependencies(main_gui rclcpp nav_msgs std_msgs std_srvs arcus_msgs ackermann_msgs)
 
 # Qt6 linking (plain style, no PRIVATE keyword)
 target_link_libraries(main_gui Qt6::Core Qt6::Widgets)

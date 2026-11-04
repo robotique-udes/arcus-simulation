@@ -7,6 +7,8 @@ if ! python3 -c "import f110_gym" &> /dev/null; then
     pip3 install -e /sim_ws/src/f1tenth_gym
 fi
 
+python3 /sim_ws/src/arcus/range_libc/pywrapper/setup.py build_ext --inplace
+
 chmod +x /sim_ws/src/arcus/scripts/lint-apply.sh
 
 # Source ROS setup
