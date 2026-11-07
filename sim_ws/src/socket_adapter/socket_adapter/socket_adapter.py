@@ -97,7 +97,7 @@ import websockets
 from std_msgs.msg import String
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
-from rclpy.node import Node
+from rclpy.node import Node, NodeNameNonExistentError
 from rclpy.parameter import Parameter
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.signals import SignalHandlerOptions
@@ -604,17 +604,42 @@ class Adapter:
             for pattern in self.service_patterns
         )
 
+    def _foreign_service_servers(self) -> set:
+        """Return the services served locally by nodes other than this one.
+
+        Mirroring one of them would put two servers on the same name, and a
+        caller would get whichever answers first. Typical case: the same node
+        runs on both machines, so both have e.g. /joy/get_parameters.
+
+        This asks each node for its servers because the graph-wide
+        get_service_names_and_types() also lists services that only have a
+        client. A local client (e.g. a GUI's parameter client) waiting for a
+        remote service must not stop that service from being mirrored.
+        """
+        own_node = (self.node.get_name(), self.node.get_namespace())
+        servers = set()
+
+        for name, namespace in self.node.get_node_names_and_namespaces():
+            if (name, namespace) == own_node:
+                continue
+            try:
+                servers.update(
+                    service
+                    for service, _types
+                    in self.node.get_service_names_and_types_by_node(
+                        name,
+                        namespace,
+                    )
+                )
+            except NodeNameNonExistentError:
+                # The node left the graph since we listed it.
+                continue
+
+        return servers
+
     def _handle_advertise_services(self, services):
         """React to the bridge announcing services the robot offers."""
-        # Services that exist locally without us. Mirroring one of them would
-        # put two servers on the same name, and a caller would get whichever
-        # answers first. Typical case: the same node runs on both machines,
-        # so both have e.g. /joy/get_parameters.
-        foreign_services = {
-            name
-            for name, _types in self.node.get_service_names_and_types()
-            if name not in self.local_srvs
-        }
+        foreign_services = self._foreign_service_servers()
 
         for s in services:
             name = s["name"]
@@ -727,6 +752,9 @@ class Adapter:
                 # clash with the forwarded ones.
                 start_parameter_services=False,
                 enable_rosout=False,
+                # Launch starts this process with `-r __node:=socket_adapter`.
+                # That remap is global, so it would rename the stand-in too.
+                use_global_arguments=False,
             )
         except Exception as e:
             self.log.warning(f"cannot create stand-in node {full_name}: {e}")
