@@ -7,6 +7,15 @@ import yaml
 
 from utils.map_io import find_latest_map_pair, pgm_opener, yaml_opener
 
+# ---------------------------------------------------------
+# Paramètres de détection 
+# ---------------------------------------------------------
+
+MIN_WALL_AREA     = 500   # px  : grands murs
+MIN_OBSTACLE_AREA = 200   # px  : petit obstacle (carré/cône) après dilatation
+MAX_OBSTACLE_SIZE = 30    # px  : côté max de la boîte englobante d'un petit obstacle
+MIN_OBSTACLE_FILL = 0.6   # aire / (w*h) : rejette les traînées de rayons lidar
+
 
 # ---------------------------------------------------------
 # HELPER FUNCTIONS
@@ -173,19 +182,9 @@ def select_contour(img, contours, title, highlights=None):
             return contours[idx]
 
 
-def autodetect_contours(contours, hierarchy, min_area=5000):
-    """
-    Use RETR_TREE hierarchy to automatically identify the outer contour
-    and all inner contours (islands inside the track).
+def autodetect_contours(contours, hierarchy, min_area=5000, min_inner_area=100):
+    h = hierarchy[0]
 
-    Returns
-    -------
-    outer : np.ndarray
-    inners : list of np.ndarray
-    """
-    h = hierarchy[0]  # shape (N, 4): [next, prev, first_child, parent]
-
-    # Outer = top-level contour (no parent) with the largest area
     top_level = [
         i for i in range(len(contours))
         if h[i][3] == -1 and cv2.contourArea(contours[i]) > min_area
@@ -193,16 +192,25 @@ def autodetect_contours(contours, hierarchy, min_area=5000):
     if not top_level:
         raise RuntimeError("No top-level contour with sufficient area found.")
 
-    outer_idx = max(top_level, key=lambda i: cv2.contourArea(contours[i]))
+    wall_idx = max(top_level, key=lambda i: cv2.contourArea(contours[i]))
+    wall_area = cv2.contourArea(contours[wall_idx])
+
+    # Mur épais = 2 contours : bord extérieur (wall_idx) et bord intérieur (le "trou").
+    # La vraie limite de la piste est le bord intérieur.
+    outer_idx = wall_idx
+    holes = [i for i in range(len(contours)) if h[i][3] == wall_idx]
+    if holes:
+        hole_idx = max(holes, key=lambda i: cv2.contourArea(contours[i]))
+        if cv2.contourArea(contours[hole_idx]) > 0.5 * wall_area:
+            outer_idx = hole_idx
+
     outer = contours[outer_idx]
 
-    # Inners = direct children of the outer contour with meaningful area
-    inner_indices = [
-        i for i in range(len(contours))
-        if h[i][3] == outer_idx and cv2.contourArea(contours[i]) > min_area
+    # Inners = enfants du trou : îlots (infield) ET petits obstacles
+    inners = [
+        contours[i] for i in range(len(contours))
+        if h[i][3] == outer_idx and cv2.contourArea(contours[i]) >= min_inner_area
     ]
-    inners = [contours[i] for i in inner_indices]
-
     return outer, inners
 
 
@@ -260,10 +268,12 @@ def main():
     binary = cv2.dilate(binary, kernel, iterations=1)
 
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-    min_area = 500
     filtered = np.zeros_like(binary)
     for i in range(1, num_labels):
-        if stats[i, cv2.CC_STAT_AREA] >= min_area:
+        x, y, w, h, area = stats[i]
+        is_wall = area >= MIN_WALL_AREA
+        is_small_obstacle = (area >= MIN_OBSTACLE_AREA and max(w, h) <= MAX_OBSTACLE_SIZE and area / (w * h) >= MIN_OBSTACLE_FILL)
+        if is_wall or is_small_obstacle:
             filtered[labels == i] = 255
     binary = filtered
 
@@ -369,13 +379,18 @@ def main():
     # SAVE RESULT
     # ---------------------------------------------------------
     h_img, w_img = img.shape
-    contour_only = np.ones((h_img, w_img), dtype=np.uint8) * 255
 
-    cv2.polylines(contour_only, [outer], True, 0, 3)
+    track_map = np.zeros((h_img, w_img), dtype=np.uint8) # fond noir partout (tout est obstacle par default)
+    cv2.fillPoly(track_map, [outer] ,255) #interieur outer line en blanc (libre)
+
     for inner in inners:
-        cv2.polylines(contour_only, [inner], True, 0, 3)
+        cv2.fillPoly(track_map, [inner], 0) # interieur inner en noir (obstacle)
 
-    cv2.imwrite(output_pgm_path, contour_only)
+    cv2.polylines(track_map, [outer], True, 0, 3)
+    for inner in inners:
+        cv2.polylines(track_map, [inner], True, 0, 3)
+
+    cv2.imwrite(output_pgm_path, track_map)
     _write_clean_map_yaml(
         yaml_opener(input_yaml_path),
         output_yaml_path,

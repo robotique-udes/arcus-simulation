@@ -14,7 +14,7 @@ class PrepareMapApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Prepare Map")
-        self.root.geometry("420x560")
+        self.root.geometry("420x620")
         self.root.resizable(False, False)
 
         self.running = False
@@ -42,6 +42,7 @@ class PrepareMapApp:
             ("Export raceline", self._run_export_raceline),
             ("Export speed zones", self._run_export_speed_zones),
             ("Export algos", self._run_export_algos),
+            ("Export clean map", self._run_export_clean_map),
         ]
 
         button_frame = tk.Frame(root, padx=20, pady=8)
@@ -129,6 +130,10 @@ class PrepareMapApp:
 
     def _edit_speed_coefficients(self):
         self._run_command_async("Edit speed coefficients", [sys.executable, "edit_speed_coefficients.py"])
+
+    def _run_export_clean_map(self):
+        script = os.path.join("utils", "exportCleanMap.sh")
+        self._run_command_async("Export clean map", ["bash", script])
 
 def main():
     root = tk.Tk()
