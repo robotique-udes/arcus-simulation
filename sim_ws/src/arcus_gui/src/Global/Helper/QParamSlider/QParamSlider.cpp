@@ -18,6 +18,12 @@ QParamSlider::QParamSlider(QWidget* parent_, std::shared_ptr<rclcpp::Node> node_
 void QParamSlider::setupUi(void)
 {
     _ui.setupUi(this);
+    this->setFixedHeight(38);
+    _ui.title->setFixedHeight(20);
+    _ui.title->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    _ui.currentValue->setFixedSize(82, 28);
+    _ui.slider->setFixedHeight(20);
+    _ui.applyPB->setFixedSize(60, 28);
     _ui.title->setText(QString::fromStdString(_paramName));
     _ui.currentValue->setText(QString::number(_defaultVal));
 

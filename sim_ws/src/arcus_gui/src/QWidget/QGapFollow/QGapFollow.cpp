@@ -10,11 +10,17 @@ QGapFollowWidget::QGapFollowWidget(std::shared_ptr<rclcpp::Node> node_, QWidget*
     _staticFrictionCoeffSlider(parent_, node_, STATIC_FRICTION_COEFF, GAP_FOLLOW_NODE_NAME, STATIC_FRICTION_COEFF_MIN, STATIC_FRICTION_COEFF_MAX, STATIC_FRICTION_COEFF_DEFAULT, STATIC_FRICTION_COEFF_PRECISION)
 {
     _ui.setupUi(this);
+    _ui.applyAllPB->setFixedSize(96, 32);
+    QLayoutItem* verticalSpacer = _ui.sliderLayout->takeAt(1);
 
     _ui.sliderLayout->addWidget(&_maxSpeedSlider);
     _ui.sliderLayout->addWidget(&_distanceSpeedGainSlider);
     _ui.sliderLayout->addWidget(&_bubbleRadiusSlider);
     _ui.sliderLayout->addWidget(&_staticFrictionCoeffSlider);
+    if (verticalSpacer)
+    {
+        _ui.sliderLayout->addItem(verticalSpacer);
+    }
 
     this->connectSignals();
 }
