@@ -17,6 +17,9 @@ services:
       - ROS_DOMAIN_ID=1
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - ROS_LOCALHOST_ONLY=1
+      # lo isn't multicast-capable, so Cyclone falls back to unicast discovery with
+      # auto participant indices (default max 9 => only 10 ROS processes). Raise it.
+      - "CYCLONEDDS_URI=<CycloneDDS><Domain><Discovery><ParticipantIndex>auto</ParticipantIndex><MaxAutoParticipantIndex>100</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>"
 
     network_mode: host
     stdin_open: true
