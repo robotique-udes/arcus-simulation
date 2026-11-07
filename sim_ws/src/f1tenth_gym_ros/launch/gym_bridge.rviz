@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /Map1
         - /Map1/Topic1
         - /LaserScan1
       Splitter Ratio: 0.5
@@ -52,7 +53,7 @@ Visualization Manager:
       Name: Map
       Topic:
         Depth: 5
-        Durability Policy: Transient Local
+        Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
@@ -68,8 +69,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 0.05302200838923454
-        Min Value: -11.071290969848633
+        Max Value: 0.09900016337633133
+        Min Value: -7.263023376464844
         Value: true
       Axis: X
       Channel Name: intensity
@@ -146,6 +147,11 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
         ego_racecar/front_right_wheel:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ego_racecar/imu:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -357,10 +363,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5853986144065857
+      Pitch: 0.5253986120223999
       Target Frame: <Fixed Frame>
       Value: ThirdPersonFollower (rviz_default_plugins)
-      Yaw: 4.970419406890869
+      Yaw: 4.800412654876709
     Saved: ~
 Window Geometry:
   Displays:

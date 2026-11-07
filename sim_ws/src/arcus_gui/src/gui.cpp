@@ -61,27 +61,14 @@ void displayWindows(MainWindow& mainWindow_)
 {
     QList<QScreen*> screens = QGuiApplication::screens();
 
-    switch (screens.size())
+    if (screens.isEmpty())
     {
-        case 0:
-            RCLCPP_ERROR(rclcpp::get_logger("GUI"), "Can't show GUI without screens");
-            break;
-        case 1:
-        {
-            QRect screenGeometry = screens[0]->geometry();
-            int screenWidth = screenGeometry.width();
-            int screenHeight = screenGeometry.height();
-
-            mainWindow_.setGeometry(screenGeometry.x(), screenGeometry.y(), screenWidth / 2, screenHeight);
-            mainWindow_.show();
-            break;
-        }
-
-        default:
-            mainWindow_.setGeometry(screens[0]->geometry());
-            mainWindow_.showMaximized();
-            break;
+        RCLCPP_ERROR(rclcpp::get_logger("GUI"), "Can't show GUI without screens");
+        return;
     }
+
+    mainWindow_.setGeometry(screens[0]->geometry());
+    mainWindow_.showMaximized();
 }
 
 void nodeThreadFunc(std::shared_ptr<rclcpp::Node> node_)
