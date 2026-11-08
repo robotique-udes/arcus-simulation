@@ -7,14 +7,15 @@ import yaml
 
 from utils.map_io import find_latest_map_pair, pgm_opener, yaml_opener
 
+
 # ---------------------------------------------------------
-# Paramètres de détection 
+# PARAMETRES DE DETECTION (a tuner)
 # ---------------------------------------------------------
 
 MIN_WALL_AREA     = 500   # px  : grands murs
-MIN_OBSTACLE_AREA = 200   # px  : petit obstacle (carré/cône) après dilatation
-MAX_OBSTACLE_SIZE = 30    # px  : côté max de la boîte englobante d'un petit obstacle
-MIN_OBSTACLE_FILL = 0.6   # aire / (w*h) : rejette les traînées de rayons lidar
+MIN_OBSTACLE_AREA = 200   # px  : petit obstacle (carre/cone) apres dilatation
+MAX_OBSTACLE_SIZE = 30    # px  : cote max de la boite englobante d'un petit obstacle
+MIN_OBSTACLE_FILL = 0.6   # aire / (w*h) : rejette les traines de rayons lidar
 
 
 # ---------------------------------------------------------
@@ -167,7 +168,7 @@ def select_contour(img, contours, title, highlights=None):
             (20, 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
-            (0, 255, 0),
+            (0, 0, 0),   # noir (BGR)
             2,
         )
         cv2.imshow(title, display)
@@ -182,8 +183,98 @@ def select_contour(img, contours, title, highlights=None):
             return contours[idx]
 
 
+def ask_yes_no(image, question, title="Question", yes_text="OUI (y)", no_text="NON (n)"):
+    """
+    Affiche `image` avec une question et deux boutons dans une fenetre OpenCV.
+    Retourne True (OUI) ou False (NON).
+    Clic sur un bouton, ou touches : y / ENTER = OUI, n / ESC = NON.
+    Fermer la fenetre = NON.
+
+    NB : les polices OpenCV n'affichent pas les accents -> ecrire sans accents.
+    """
+    if image.ndim == 2:
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    h, w = image.shape[:2]
+    bar_h = 90
+
+    canvas = np.zeros((h + bar_h, w, 3), dtype=np.uint8)
+    canvas[:h] = image
+    canvas[h:] = (40, 40, 40)
+    cv2.putText(canvas, question, (20, h + 32), font, 0.7, (255, 255, 255), 2)
+
+    btn_w = max(cv2.getTextSize(t, font, 0.6, 2)[0][0] for t in (yes_text, no_text)) + 30
+    btn_h, gap = 36, 30
+    y0 = h + 44
+    yes_rect = (20, y0, 20 + btn_w, y0 + btn_h)
+    no_rect = (20 + btn_w + gap, y0, 20 + 2 * btn_w + gap, y0 + btn_h)
+
+    for (x0, ya, x1, yb), text, color in (
+        (yes_rect, yes_text, (0, 150, 0)),
+        (no_rect, no_text, (0, 0, 170)),
+    ):
+        cv2.rectangle(canvas, (x0, ya), (x1, yb), color, -1)
+        cv2.putText(canvas, text, (x0 + 15, ya + 25), font, 0.6, (255, 255, 255), 2)
+
+    result = {"value": None}
+
+    def inside(rect, x, y):
+        return rect[0] <= x <= rect[2] and rect[1] <= y <= rect[3]
+
+    def on_mouse(event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONUP:
+            if inside(yes_rect, x, y):
+                result["value"] = True
+            elif inside(no_rect, x, y):
+                result["value"] = False
+
+    cv2.namedWindow(title)
+    cv2.setMouseCallback(title, on_mouse)
+    cv2.imshow(title, canvas)
+    cv2.waitKey(1)   # laisse la fenetre s'afficher avant de la tester
+
+    # Selon le backend OpenCV (GTK/Qt), getWindowProperty(VISIBLE) peut renvoyer
+    # -1 en permanence. On ne l'utilise donc que s'il confirme que la fenetre
+    # est visible maintenant ; sinon, on ne detecte pas la fermeture (ESC / n marchent toujours).
+    try:
+        can_detect_close = cv2.getWindowProperty(title, cv2.WND_PROP_VISIBLE) >= 1
+    except cv2.error:
+        can_detect_close = False
+
+    while result["value"] is None:
+        key = cv2.waitKey(30) & 0xFF
+        if key in (ord("y"), ord("Y"), 13):
+            result["value"] = True
+        elif key in (ord("n"), ord("N"), 27):
+            result["value"] = False
+        elif can_detect_close and cv2.getWindowProperty(title, cv2.WND_PROP_VISIBLE) < 1:
+            result["value"] = False   # fenetre fermee avec la croix = NON
+
+    cv2.destroyWindow(title)
+    cv2.waitKey(1)
+    return result["value"]
+
+
 def autodetect_contours(contours, hierarchy, min_area=5000, min_inner_area=100):
-    h = hierarchy[0]
+    """
+    Utilise la hierarchie RETR_TREE pour trouver automatiquement :
+      - outer  : le bord INTERIEUR du grand mur exterieur (= vraie limite de la piste)
+      - inners : les ilots (infield) ET les petits obstacles (carres/cones)
+
+    Un mur epais produit 2 contours imbriques : son bord exterieur (top-level)
+    et son bord interieur (le "trou", enfant du bord exterieur). Les ilots et les
+    petits obstacles sont les enfants de ce trou.
+
+    Returns
+    -------
+    outer : np.ndarray
+    inners : list of np.ndarray
+    """
+    if hierarchy is None or len(contours) == 0:
+        raise RuntimeError("Aucun contour trouve : l'image binaire est vide.")
+
+    h = hierarchy[0]  # shape (N, 4): [next, prev, first_child, parent]
 
     top_level = [
         i for i in range(len(contours))
@@ -195,8 +286,8 @@ def autodetect_contours(contours, hierarchy, min_area=5000, min_inner_area=100):
     wall_idx = max(top_level, key=lambda i: cv2.contourArea(contours[i]))
     wall_area = cv2.contourArea(contours[wall_idx])
 
-    # Mur épais = 2 contours : bord extérieur (wall_idx) et bord intérieur (le "trou").
-    # La vraie limite de la piste est le bord intérieur.
+    # La vraie limite de la piste est le bord interieur du mur (le "trou").
+    # Si le mur n'a pas de trou valide, on garde le contour exterieur.
     outer_idx = wall_idx
     holes = [i for i in range(len(contours)) if h[i][3] == wall_idx]
     if holes:
@@ -206,7 +297,7 @@ def autodetect_contours(contours, hierarchy, min_area=5000, min_inner_area=100):
 
     outer = contours[outer_idx]
 
-    # Inners = enfants du trou : îlots (infield) ET petits obstacles
+    # Inners = enfants du trou : ilots ET petits obstacles
     inners = [
         contours[i] for i in range(len(contours))
         if h[i][3] == outer_idx and cv2.contourArea(contours[i]) >= min_inner_area
@@ -272,7 +363,11 @@ def main():
     for i in range(1, num_labels):
         x, y, w, h, area = stats[i]
         is_wall = area >= MIN_WALL_AREA
-        is_small_obstacle = (area >= MIN_OBSTACLE_AREA and max(w, h) <= MAX_OBSTACLE_SIZE and area / (w * h) >= MIN_OBSTACLE_FILL)
+        is_small_obstacle = (
+            area >= MIN_OBSTACLE_AREA
+            and max(w, h) <= MAX_OBSTACLE_SIZE
+            and area / (w * h) >= MIN_OBSTACLE_FILL
+        )
         if is_wall or is_small_obstacle:
             filtered[labels == i] = 255
     binary = filtered
@@ -297,29 +392,23 @@ def main():
         outer, inners = None, []
 
     # ---------------------------------------------------------
-    # PREVIEW AUTO-DETECTED RESULT
+    # CHOIX AUTO / MANUEL (dans la fenetre)
     # ---------------------------------------------------------
     if outer is not None:
         preview = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        cv2.drawContours(preview, [outer], -1, (0, 0, 255), 3)   # outer = red
+        cv2.drawContours(preview, [outer], -1, (0, 0, 255), 3)     # outer = rouge
         if inners:
-            cv2.drawContours(preview, inners, -1, (0, 255, 0), 3)  # inners = green
-        cv2.putText(
+            cv2.drawContours(preview, inners, -1, (0, 255, 0), 3)  # inners = vert
+        use_auto = ask_yes_no(
             preview,
-            "RED=outer  GREEN=inner(s)  —  press any key",
-            (20, 40),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (255, 255, 0),
-            2,
+            "Utiliser la detection auto ?  (rouge=outer, vert=inner)",
+            title="Detection automatique",
         )
-        cv2.imshow("Auto-detected contours", preview)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    else:
+        print("Detection auto impossible : passage en selection manuelle.")
+        use_auto = False
 
-    use_auto = input("Use auto-detected contours? (y/n): ").strip().lower()
-
-    if use_auto != "y":
+    if not use_auto:
         # --- Manual selection ---
         contour_list = list(contours)
 
@@ -327,8 +416,15 @@ def main():
 
         inners = []
         while True:
-            add = input(f"Add an INNER contour? ({len(inners)} selected so far) (y/n): ").strip().lower()
-            if add != "y":
+            current = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            cv2.drawContours(current, [outer], -1, (0, 0, 255), 3)
+            if inners:
+                cv2.drawContours(current, inners, -1, (0, 255, 0), 3)
+            if not ask_yes_no(
+                current,
+                f"Ajouter un contour INNER ? ({len(inners)} deja choisi(s))",
+                title="Ajouter un inner",
+            ):
                 break
             inner = select_contour(
                 img, contour_list,
@@ -340,12 +436,14 @@ def main():
     # ---------------------------------------------------------
     # HANDLE MISSING CONTOUR (generate automatically)
     # ---------------------------------------------------------
-    # At this point we always have outer. If inners is empty, generate from outer.
-    # If outer needs to be generated from inners, that path is handled below too.
-
     if not inners:
-        gen = input("No inner contour(s). Generate inner automatically from outer? (y/n): ").strip().lower()
-        if gen == "y":
+        base = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        cv2.drawContours(base, [outer], -1, (0, 0, 255), 3)
+        if ask_yes_no(
+            base,
+            "Aucun inner. Le generer automatiquement depuis l'outer ?",
+            title="Generer l'inner",
+        ):
             print("Generating inner contour(s) from outer…")
             generated = generate_other_contour([outer], "inner_from_outer", binary)
             if len(generated) > 0:
@@ -355,36 +453,33 @@ def main():
                 print("  Could not generate inner contour — check min_distance / max_search.")
 
     # ---------------------------------------------------------
-    # DRAW FINAL RESULT
+    # DRAW FINAL RESULT + CONFIRMATION
     # ---------------------------------------------------------
     contour_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    cv2.drawContours(contour_img, [outer], -1, (0, 0, 255), 3)   # outer = red
+    cv2.drawContours(contour_img, [outer], -1, (0, 0, 255), 3)   # outer = rouge
     if inners:
-        cv2.drawContours(contour_img, inners, -1, (0, 255, 0), 3)  # inners = green
+        cv2.drawContours(contour_img, inners, -1, (0, 255, 0), 3)  # inners = vert
 
-    cv2.putText(
+    if not ask_yes_no(
         contour_img,
-        "RED=outer  GREEN=inner(s)  —  press any key to save",
-        (20, 40),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (255, 255, 0),
-        2,
-    )
-    cv2.imshow("Final contours", contour_img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        "Sauvegarder la carte ?  (rouge=outer, vert=inner)",
+        title="Contours finaux",
+        yes_text="SAUVER (y)",
+        no_text="ANNULER (n)",
+    ):
+        print("Sauvegarde annulee.")
+        return
 
     # ---------------------------------------------------------
     # SAVE RESULT
     # ---------------------------------------------------------
     h_img, w_img = img.shape
 
-    track_map = np.zeros((h_img, w_img), dtype=np.uint8) # fond noir partout (tout est obstacle par default)
-    cv2.fillPoly(track_map, [outer] ,255) #interieur outer line en blanc (libre)
+    track_map = np.zeros((h_img, w_img), dtype=np.uint8)   # fond noir (tout est obstacle)
+    cv2.fillPoly(track_map, [outer], 255)                  # interieur de l'outer en blanc (libre)
 
     for inner in inners:
-        cv2.fillPoly(track_map, [inner], 0) # interieur inner en noir (obstacle)
+        cv2.fillPoly(track_map, [inner], 0)                # interieur des inners en noir (obstacle)
 
     cv2.polylines(track_map, [outer], True, 0, 3)
     for inner in inners:

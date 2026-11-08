@@ -14,7 +14,7 @@ class PrepareMapApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Prepare Map")
-        self.root.geometry("420x620")
+        self.root.geometry("420x980")
         self.root.resizable(False, False)
 
         self.running = False
