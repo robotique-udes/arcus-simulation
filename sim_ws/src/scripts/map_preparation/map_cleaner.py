@@ -612,6 +612,5 @@ def main():
         f"  PGM : {output_pgm_path}"
     )
 
-
 if __name__ == "__main__":
     main()
