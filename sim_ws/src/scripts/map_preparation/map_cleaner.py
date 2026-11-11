@@ -1,5 +1,7 @@
 import copy
 import os
+import re
+import subprocess
 
 import cv2
 import numpy as np
@@ -19,6 +21,7 @@ MIN_OBSTACLE_FILL = 0.6   # area / (w*h): rejects lidar ray streaks
 
 DISPLAY_MARGIN_W = 100    # px kept free on screen (side panels)
 DISPLAY_MARGIN_H = 150    # px kept free on screen (title bar, top bar, taskbar)
+DISPLAY_SCALE = None      # HiDPI screen scaling; None = auto. Set 2 if windows look 2x too big
 
 
 # ---------------------------------------------------------
@@ -148,29 +151,60 @@ def generate_other_contour(reference_contours, mode, binary, min_distance=10, ma
 
 
 _SCREEN_SIZE = None
+_view_zoom = 1.0   # live display zoom, changed with the - / + keys
+
+
+def _display_scale(physical_width):
+    """Screen scaling factor (HiDPI): manual setting, env vars, Xft.dpi, else a guess."""
+    if DISPLAY_SCALE:
+        return float(DISPLAY_SCALE)
+    for var in ("GDK_SCALE", "QT_SCALE_FACTOR"):
+        try:
+            value = float(os.environ.get(var, ""))
+            if value > 0:
+                return value
+        except ValueError:
+            pass
+    try:
+        out = subprocess.run(["xrdb", "-query"], capture_output=True, text=True, timeout=2).stdout
+        match = re.search(r"Xft\.dpi:\s*(\d+)", out)
+        if match:
+            return max(1.0, int(match.group(1)) / 96)
+    except Exception:
+        pass
+    return 2.0 if physical_width >= 2880 else 1.0   # very high-res screens are almost always scaled
 
 
 def _screen_size(default=(1280, 720)):
-    """Screen size in pixels (cached). Falls back to `default` if it cannot be read."""
+    """Screen size as seen by the OpenCV windows (cached). Falls back to `default`."""
     global _SCREEN_SIZE
     if _SCREEN_SIZE is None:
         try:
             import tkinter as tk
             root = tk.Tk()
             root.withdraw()
-            _SCREEN_SIZE = (root.winfo_screenwidth(), root.winfo_screenheight())
+            width, height = root.winfo_screenwidth(), root.winfo_screenheight()
             root.destroy()
+            scale = _display_scale(width)
+            _SCREEN_SIZE = (int(width / scale), int(height / scale))
+            print(f"Screen {width}x{height}, scale x{scale:g} -> window area {_SCREEN_SIZE[0]}x{_SCREEN_SIZE[1]}")
         except Exception:
             _SCREEN_SIZE = default
+            print(f"Screen size unknown, assuming {default[0]}x{default[1]}")
     return _SCREEN_SIZE
 
 
+def _change_zoom(factor):
+    global _view_zoom
+    _view_zoom = min(4.0, max(0.2, _view_zoom * factor))
+
+
 def _fit_scale(w, h, reserve_h=0):
-    """Scale (<= 1) so that a w x h image plus reserve_h extra pixels fits on screen."""
+    """Display scale (<= 1) so that a w x h image plus reserve_h extra pixels fits on screen."""
     screen_w, screen_h = _screen_size()
     max_w = screen_w - DISPLAY_MARGIN_W
     max_h = screen_h - DISPLAY_MARGIN_H - reserve_h
-    return max(0.1, min(1.0, max_w / w, max_h / h))
+    return max(0.1, min(1.0, min(max_w / w, max_h / h) * _view_zoom))
 
 
 def select_contour(img, contours, title, highlights=None):
@@ -197,7 +231,7 @@ def select_contour(img, contours, title, highlights=None):
         if scale < 1.0:
             display = cv2.resize(display, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
 
-        label = f"{title} ({idx + 1}/{len(contours)}) LEFT/RIGHT/ENTER"
+        label = f"{title} ({idx + 1}/{len(contours)}) LEFT/RIGHT/ENTER  -/+ zoom"
         # Shrink the text if the map is too narrow
         scale = 0.8
         text_w = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)[0][0]
@@ -220,6 +254,10 @@ def select_contour(img, contours, title, highlights=None):
             idx = (idx - 1) % len(contours)
         elif key == 83:  # RIGHT
             idx = (idx + 1) % len(contours)
+        elif key in (ord("-"), ord("_")):   # zoom out
+            _change_zoom(1 / 1.15)
+        elif key in (ord("+"), ord("=")):   # zoom in
+            _change_zoom(1.15)
         elif key == 13:  # ENTER
             cv2.destroyWindow(title)
             return contours[idx]
@@ -244,46 +282,53 @@ def ask_yes_no(image, question, title="Question", yes_text="OUI (y)", no_text="N
     """
     Show `image` with a question and two buttons in an OpenCV window.
     Returns True (yes) or False (no). Click a button, or press y/ENTER or n/ESC.
+    Press - / + to zoom the display if it does not fit your screen.
 
     Note: OpenCV fonts cannot render accents, so write the texts without them.
     """
     if image.ndim == 2:
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
-    # Downscale for display if the map plus the button bar would not fit on screen
-    scale = _fit_scale(image.shape[1], image.shape[0], reserve_h=150)
-    if scale < 1.0:
-        image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
-
     font = cv2.FONT_HERSHEY_SIMPLEX
     margin, line_h, btn_h, gap = 20, 28, 36, 30
-    h, w = image.shape[:2]
-
-    # Canvas must be wide enough for both buttons
     btn_w = max(cv2.getTextSize(t, font, 0.6, 2)[0][0] for t in (yes_text, no_text)) + 30
-    canvas_w = max(w, 2 * btn_w + gap + 2 * margin)
+    state = {}
 
-    # Wrap the question to fit the width
-    lines = _wrap_text(question, font, 0.7, 2, canvas_w - 2 * margin)
+    def build():
+        # Downscale the map if it plus the button bar would not fit on screen
+        scale = _fit_scale(image.shape[1], image.shape[0], reserve_h=150)
+        shown = image
+        if scale < 1.0:
+            shown = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        h, w = shown.shape[:2]
 
-    y0 = h + 30 + (len(lines) - 1) * line_h + 16   # top of the buttons
-    bar_h = (y0 - h) + btn_h + 16
+        # Canvas must be wide enough for both buttons; the question wraps to fit
+        canvas_w = max(w, 2 * btn_w + gap + 2 * margin)
+        lines = _wrap_text(question, font, 0.7, 2, canvas_w - 2 * margin)
+        y0 = h + 30 + (len(lines) - 1) * line_h + 16   # top of the buttons
+        bar_h = (y0 - h) + btn_h + 16
 
-    canvas = np.full((h + bar_h, canvas_w, 3), (40, 40, 40), dtype=np.uint8)
-    x_off = (canvas_w - w) // 2                    # center the image
-    canvas[:h, x_off:x_off + w] = image
-    for i, line in enumerate(lines):
-        cv2.putText(canvas, line, (margin, h + 30 + i * line_h), font, 0.7, (255, 255, 255), 2)
+        canvas = np.full((h + bar_h, canvas_w, 3), (40, 40, 40), dtype=np.uint8)
+        x_off = (canvas_w - w) // 2                    # center the image
+        canvas[:h, x_off:x_off + w] = shown
+        for i, line in enumerate(lines):
+            cv2.putText(canvas, line, (margin, h + 30 + i * line_h), font, 0.7, (255, 255, 255), 2)
 
-    yes_rect = (margin, y0, margin + btn_w, y0 + btn_h)
-    no_rect = (margin + btn_w + gap, y0, margin + 2 * btn_w + gap, y0 + btn_h)
+        yes_rect = (margin, y0, margin + btn_w, y0 + btn_h)
+        no_rect = (margin + btn_w + gap, y0, margin + 2 * btn_w + gap, y0 + btn_h)
+        for (x0, ya, x1, yb), text, color in (
+            (yes_rect, yes_text, (0, 150, 0)),
+            (no_rect, no_text, (0, 0, 170)),
+        ):
+            cv2.rectangle(canvas, (x0, ya), (x1, yb), color, -1)
+            cv2.putText(canvas, text, (x0 + 15, ya + 25), font, 0.6, (255, 255, 255), 2)
 
-    for (x0, ya, x1, yb), text, color in (
-        (yes_rect, yes_text, (0, 150, 0)),
-        (no_rect, no_text, (0, 0, 170)),
-    ):
-        cv2.rectangle(canvas, (x0, ya), (x1, yb), color, -1)
-        cv2.putText(canvas, text, (x0 + 15, ya + 25), font, 0.6, (255, 255, 255), 2)
+        hint = "-/+ zoom"
+        hint_w = cv2.getTextSize(hint, font, 0.5, 1)[0][0]
+        if canvas_w - hint_w - margin > no_rect[2] + 10:
+            cv2.putText(canvas, hint, (canvas_w - hint_w - margin, y0 + 24), font, 0.5, (170, 170, 170), 1)
+
+        state.update(canvas=canvas, yes=yes_rect, no=no_rect)
 
     result = {"value": None}
 
@@ -292,14 +337,15 @@ def ask_yes_no(image, question, title="Question", yes_text="OUI (y)", no_text="N
 
     def on_mouse(event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONUP:
-            if inside(yes_rect, x, y):
+            if inside(state["yes"], x, y):
                 result["value"] = True
-            elif inside(no_rect, x, y):
+            elif inside(state["no"], x, y):
                 result["value"] = False
 
+    build()
     cv2.namedWindow(title)
     cv2.setMouseCallback(title, on_mouse)
-    cv2.imshow(title, canvas)
+    cv2.imshow(title, state["canvas"])
     cv2.waitKey(1)   # let the window render
 
     # Some OpenCV backends (GTK) always return -1 for WND_PROP_VISIBLE, so only
@@ -315,6 +361,10 @@ def ask_yes_no(image, question, title="Question", yes_text="OUI (y)", no_text="N
             result["value"] = True
         elif key in (ord("n"), ord("N"), 27):
             result["value"] = False
+        elif key in (ord("-"), ord("_"), ord("+"), ord("=")):
+            _change_zoom(1 / 1.15 if key in (ord("-"), ord("_")) else 1.15)
+            build()
+            cv2.imshow(title, state["canvas"])
         elif can_detect_close and cv2.getWindowProperty(title, cv2.WND_PROP_VISIBLE) < 1:
             result["value"] = False   # window closed = no
 
