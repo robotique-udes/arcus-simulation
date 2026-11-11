@@ -17,6 +17,9 @@ MIN_OBSTACLE_AREA = 200   # px: small obstacle (square/cone) after dilation
 MAX_OBSTACLE_SIZE = 30    # px: max bounding-box side of a small obstacle
 MIN_OBSTACLE_FILL = 0.6   # area / (w*h): rejects lidar ray streaks
 
+DISPLAY_MARGIN_W = 100    # px kept free on screen (side panels)
+DISPLAY_MARGIN_H = 150    # px kept free on screen (title bar, top bar, taskbar)
+
 
 # ---------------------------------------------------------
 # HELPER FUNCTIONS
@@ -144,6 +147,32 @@ def generate_other_contour(reference_contours, mode, binary, min_distance=10, ma
     return np.array(generated_points, dtype=np.int32).reshape(-1, 1, 2)
 
 
+_SCREEN_SIZE = None
+
+
+def _screen_size(default=(1280, 720)):
+    """Screen size in pixels (cached). Falls back to `default` if it cannot be read."""
+    global _SCREEN_SIZE
+    if _SCREEN_SIZE is None:
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            root.withdraw()
+            _SCREEN_SIZE = (root.winfo_screenwidth(), root.winfo_screenheight())
+            root.destroy()
+        except Exception:
+            _SCREEN_SIZE = default
+    return _SCREEN_SIZE
+
+
+def _fit_scale(w, h, reserve_h=0):
+    """Scale (<= 1) so that a w x h image plus reserve_h extra pixels fits on screen."""
+    screen_w, screen_h = _screen_size()
+    max_w = screen_w - DISPLAY_MARGIN_W
+    max_h = screen_h - DISPLAY_MARGIN_H - reserve_h
+    return max(0.1, min(1.0, max_w / w, max_h / h))
+
+
 def select_contour(img, contours, title, highlights=None):
     """
     Interactive contour picker. LEFT/RIGHT to cycle, ENTER to confirm.
@@ -162,6 +191,12 @@ def select_contour(img, contours, title, highlights=None):
             cv2.drawContours(display, highlights, -1, (0, 255, 0), 2)
 
         cv2.drawContours(display, contours, idx, (0, 0, 255), 3)
+
+        # Downscale for display only if the map does not fit on screen
+        scale = _fit_scale(display.shape[1], display.shape[0])
+        if scale < 1.0:
+            display = cv2.resize(display, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+
         label = f"{title} ({idx + 1}/{len(contours)}) LEFT/RIGHT/ENTER"
         # Shrink the text if the map is too narrow
         scale = 0.8
@@ -214,6 +249,11 @@ def ask_yes_no(image, question, title="Question", yes_text="OUI (y)", no_text="N
     """
     if image.ndim == 2:
         image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+
+    # Downscale for display if the map plus the button bar would not fit on screen
+    scale = _fit_scale(image.shape[1], image.shape[0], reserve_h=150)
+    if scale < 1.0:
+        image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
 
     font = cv2.FONT_HERSHEY_SIMPLEX
     margin, line_h, btn_h, gap = 20, 28, 36, 30
