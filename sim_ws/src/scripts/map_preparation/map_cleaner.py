@@ -167,7 +167,7 @@ def _display_scale(physical_width):
             pass
     try:
         out = subprocess.run(["xrdb", "-query"], capture_output=True, text=True, timeout=2).stdout
-        match = re.search(r"Xft\.dpi:\s*(\d+)", out)
+        match = re.search(r"Xft**\.**dpi:\s*(\d+)", out)
         if match:
             return max(1.0, int(match.group(1)) / 96)
     except Exception:
@@ -278,7 +278,7 @@ def _wrap_text(text, font, scale, thickness, max_width):
     return lines
 
 
-def ask_yes_no(image, question, title="Question", yes_text="OUI (y)", no_text="NON (n)"):
+def ask_yes_no(image, question, title="Question", yes_text="YES (y)", no_text="NO (n)"):
     """
     Show `image` with a question and two buttons in an OpenCV window.
     Returns True (yes) or False (no). Click a button, or press y/ENTER or n/ESC.
@@ -515,11 +515,11 @@ def main():
             cv2.drawContours(preview, inners, -1, (0, 255, 0), 3)  # inners = green
         use_auto = ask_yes_no(
             preview,
-            "Utiliser la detection auto ?  (rouge=outer, vert=inner)",
-            title="Detection automatique",
+            "Use automatic detection? (red=outer, green=inner)",
+            title="Automatic Detection",
         )
     else:
-        print("Detection auto impossible : passage en selection manuelle.")
+        print("Automatic detection unavailable: switching to manual selection.")
         use_auto = False
 
     if not use_auto:
@@ -536,8 +536,8 @@ def main():
                 cv2.drawContours(current, inners, -1, (0, 255, 0), 3)
             if not ask_yes_no(
                 current,
-                f"Ajouter un contour INNER ? ({len(inners)} deja choisi(s))",
-                title="Ajouter un inner",
+                f"Add an INNER contour? ({len(inners)} already selected)",
+                title="Add Inner Contour",
             ):
                 break
             inner = select_contour(
@@ -555,8 +555,8 @@ def main():
         cv2.drawContours(base, [outer], -1, (0, 0, 255), 3)
         if ask_yes_no(
             base,
-            "Aucun inner. Le generer automatiquement depuis l'outer ?",
-            title="Generer l'inner",
+            "No inner contour selected. Generate one automatically from the outer contour?",
+            title="Generate Inner Contour",
         ):
             print("Generating inner contour(s) from outer…")
             generated = generate_other_contour([outer], "inner_from_outer", binary)
@@ -576,12 +576,12 @@ def main():
 
     if not ask_yes_no(
         contour_img,
-        "Sauvegarder la carte ?  (rouge=outer, vert=inner)",
-        title="Contours finaux",
-        yes_text="SAUVER (y)",
-        no_text="ANNULER (n)",
+        "Save the map? (red=outer, green=inner)",
+        title="Final Contours",
+        yes_text="SAVE (y)",
+        no_text="CANCEL (n)",
     ):
-        print("Sauvegarde annulee.")
+        print("Save cancelled.")
         return
 
     # ---------------------------------------------------------
