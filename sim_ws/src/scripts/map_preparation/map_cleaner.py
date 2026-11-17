@@ -1,11 +1,27 @@
 import copy
 import os
+import re
+import subprocess
 
 import cv2
 import numpy as np
 import yaml
 
 from utils.map_io import find_latest_map_pair, pgm_opener, yaml_opener
+
+
+# ---------------------------------------------------------
+# DETECTION PARAMETERS (tune these)
+# ---------------------------------------------------------
+
+MIN_WALL_AREA     = 500   # px: large walls
+MIN_OBSTACLE_AREA = 200   # px: small obstacle (square/cone) after dilation
+MAX_OBSTACLE_SIZE = 30    # px: max bounding-box side of a small obstacle
+MIN_OBSTACLE_FILL = 0.6   # area / (w*h): rejects lidar ray streaks
+
+DISPLAY_MARGIN_W = 100    # px kept free on screen (side panels)
+DISPLAY_MARGIN_H = 150    # px kept free on screen (title bar, top bar, taskbar)
+DISPLAY_SCALE = None      # HiDPI screen scaling; None = auto. Set 2 if windows look 2x too big
 
 
 # ---------------------------------------------------------
@@ -134,6 +150,63 @@ def generate_other_contour(reference_contours, mode, binary, min_distance=10, ma
     return np.array(generated_points, dtype=np.int32).reshape(-1, 1, 2)
 
 
+_SCREEN_SIZE = None
+_view_zoom = 1.0   # live display zoom, changed with the - / + keys
+
+
+def _display_scale(physical_width):
+    """Screen scaling factor (HiDPI): manual setting, env vars, Xft.dpi, else a guess."""
+    if DISPLAY_SCALE:
+        return float(DISPLAY_SCALE)
+    for var in ("GDK_SCALE", "QT_SCALE_FACTOR"):
+        try:
+            value = float(os.environ.get(var, ""))
+            if value > 0:
+                return value
+        except ValueError:
+            pass
+    try:
+        out = subprocess.run(["xrdb", "-query"], capture_output=True, text=True, timeout=2).stdout
+        match = re.search(r"Xft**\.**dpi:\s*(\d+)", out)
+        if match:
+            return max(1.0, int(match.group(1)) / 96)
+    except Exception:
+        pass
+    return 2.0 if physical_width >= 2880 else 1.0   # very high-res screens are almost always scaled
+
+
+def _screen_size(default=(1280, 720)):
+    """Screen size as seen by the OpenCV windows (cached). Falls back to `default`."""
+    global _SCREEN_SIZE
+    if _SCREEN_SIZE is None:
+        try:
+            import tkinter as tk
+            root = tk.Tk()
+            root.withdraw()
+            width, height = root.winfo_screenwidth(), root.winfo_screenheight()
+            root.destroy()
+            scale = _display_scale(width)
+            _SCREEN_SIZE = (int(width / scale), int(height / scale))
+            print(f"Screen {width}x{height}, scale x{scale:g} -> window area {_SCREEN_SIZE[0]}x{_SCREEN_SIZE[1]}")
+        except Exception:
+            _SCREEN_SIZE = default
+            print(f"Screen size unknown, assuming {default[0]}x{default[1]}")
+    return _SCREEN_SIZE
+
+
+def _change_zoom(factor):
+    global _view_zoom
+    _view_zoom = min(4.0, max(0.2, _view_zoom * factor))
+
+
+def _fit_scale(w, h, reserve_h=0):
+    """Display scale (<= 1) so that a w x h image plus reserve_h extra pixels fits on screen."""
+    screen_w, screen_h = _screen_size()
+    max_w = screen_w - DISPLAY_MARGIN_W
+    max_h = screen_h - DISPLAY_MARGIN_H - reserve_h
+    return max(0.1, min(1.0, min(max_w / w, max_h / h) * _view_zoom))
+
+
 def select_contour(img, contours, title, highlights=None):
     """
     Interactive contour picker. LEFT/RIGHT to cycle, ENTER to confirm.
@@ -152,13 +225,26 @@ def select_contour(img, contours, title, highlights=None):
             cv2.drawContours(display, highlights, -1, (0, 255, 0), 2)
 
         cv2.drawContours(display, contours, idx, (0, 0, 255), 3)
+
+        # Downscale for display only if the map does not fit on screen
+        scale = _fit_scale(display.shape[1], display.shape[0])
+        if scale < 1.0:
+            display = cv2.resize(display, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+
+        label = f"{title} ({idx + 1}/{len(contours)}) LEFT/RIGHT/ENTER  -/+ zoom"
+        # Shrink the text if the map is too narrow
+        scale = 0.8
+        text_w = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)[0][0]
+        max_w = display.shape[1] - 40
+        if text_w > max_w:
+            scale = max(0.4, scale * max_w / text_w)
         cv2.putText(
             display,
-            f"{title} ({idx + 1}/{len(contours)}) LEFT/RIGHT/ENTER",
+            label,
             (20, 40),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            (0, 255, 0),
+            scale,
+            (0, 0, 0),   # black (BGR)
             2,
         )
         cv2.imshow(title, display)
@@ -168,24 +254,143 @@ def select_contour(img, contours, title, highlights=None):
             idx = (idx - 1) % len(contours)
         elif key == 83:  # RIGHT
             idx = (idx + 1) % len(contours)
+        elif key in (ord("-"), ord("_")):   # zoom out
+            _change_zoom(1 / 1.15)
+        elif key in (ord("+"), ord("=")):   # zoom in
+            _change_zoom(1.15)
         elif key == 13:  # ENTER
             cv2.destroyWindow(title)
             return contours[idx]
 
 
-def autodetect_contours(contours, hierarchy, min_area=5000):
+def _wrap_text(text, font, scale, thickness, max_width):
+    """Split text into lines that fit within max_width pixels."""
+    lines, current = [], ""
+    for word in text.split():
+        trial = (current + " " + word).strip()
+        if not current or cv2.getTextSize(trial, font, scale, thickness)[0][0] <= max_width:
+            current = trial
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
+def ask_yes_no(image, question, title="Question", yes_text="YES (y)", no_text="NO (n)"):
     """
-    Use RETR_TREE hierarchy to automatically identify the outer contour
-    and all inner contours (islands inside the track).
+    Show `image` with a question and two buttons in an OpenCV window.
+    Returns True (yes) or False (no). Click a button, or press y/ENTER or n/ESC.
+    Press - / + to zoom the display if it does not fit your screen.
+
+    Note: OpenCV fonts cannot render accents, so write the texts without them.
+    """
+    if image.ndim == 2:
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    margin, line_h, btn_h, gap = 20, 28, 36, 30
+    btn_w = max(cv2.getTextSize(t, font, 0.6, 2)[0][0] for t in (yes_text, no_text)) + 30
+    state = {}
+
+    def build():
+        # Downscale the map if it plus the button bar would not fit on screen
+        scale = _fit_scale(image.shape[1], image.shape[0], reserve_h=150)
+        shown = image
+        if scale < 1.0:
+            shown = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        h, w = shown.shape[:2]
+
+        # Canvas must be wide enough for both buttons; the question wraps to fit
+        canvas_w = max(w, 2 * btn_w + gap + 2 * margin)
+        lines = _wrap_text(question, font, 0.7, 2, canvas_w - 2 * margin)
+        y0 = h + 30 + (len(lines) - 1) * line_h + 16   # top of the buttons
+        bar_h = (y0 - h) + btn_h + 16
+
+        canvas = np.full((h + bar_h, canvas_w, 3), (40, 40, 40), dtype=np.uint8)
+        x_off = (canvas_w - w) // 2                    # center the image
+        canvas[:h, x_off:x_off + w] = shown
+        for i, line in enumerate(lines):
+            cv2.putText(canvas, line, (margin, h + 30 + i * line_h), font, 0.7, (255, 255, 255), 2)
+
+        yes_rect = (margin, y0, margin + btn_w, y0 + btn_h)
+        no_rect = (margin + btn_w + gap, y0, margin + 2 * btn_w + gap, y0 + btn_h)
+        for (x0, ya, x1, yb), text, color in (
+            (yes_rect, yes_text, (0, 150, 0)),
+            (no_rect, no_text, (0, 0, 170)),
+        ):
+            cv2.rectangle(canvas, (x0, ya), (x1, yb), color, -1)
+            cv2.putText(canvas, text, (x0 + 15, ya + 25), font, 0.6, (255, 255, 255), 2)
+
+        hint = "-/+ zoom"
+        hint_w = cv2.getTextSize(hint, font, 0.5, 1)[0][0]
+        if canvas_w - hint_w - margin > no_rect[2] + 10:
+            cv2.putText(canvas, hint, (canvas_w - hint_w - margin, y0 + 24), font, 0.5, (170, 170, 170), 1)
+
+        state.update(canvas=canvas, yes=yes_rect, no=no_rect)
+
+    result = {"value": None}
+
+    def inside(rect, x, y):
+        return rect[0] <= x <= rect[2] and rect[1] <= y <= rect[3]
+
+    def on_mouse(event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONUP:
+            if inside(state["yes"], x, y):
+                result["value"] = True
+            elif inside(state["no"], x, y):
+                result["value"] = False
+
+    build()
+    cv2.namedWindow(title)
+    cv2.setMouseCallback(title, on_mouse)
+    cv2.imshow(title, state["canvas"])
+    cv2.waitKey(1)   # let the window render
+
+    # Some OpenCV backends (GTK) always return -1 for WND_PROP_VISIBLE, so only
+    # detect window closing if the property works here. ESC / n always work.
+    try:
+        can_detect_close = cv2.getWindowProperty(title, cv2.WND_PROP_VISIBLE) >= 1
+    except cv2.error:
+        can_detect_close = False
+
+    while result["value"] is None:
+        key = cv2.waitKey(30) & 0xFF
+        if key in (ord("y"), ord("Y"), 13):
+            result["value"] = True
+        elif key in (ord("n"), ord("N"), 27):
+            result["value"] = False
+        elif key in (ord("-"), ord("_"), ord("+"), ord("=")):
+            _change_zoom(1 / 1.15 if key in (ord("-"), ord("_")) else 1.15)
+            build()
+            cv2.imshow(title, state["canvas"])
+        elif can_detect_close and cv2.getWindowProperty(title, cv2.WND_PROP_VISIBLE) < 1:
+            result["value"] = False   # window closed = no
+
+    cv2.destroyWindow(title)
+    cv2.waitKey(1)
+    return result["value"]
+
+
+def autodetect_contours(contours, hierarchy, min_area=5000, min_inner_area=100):
+    """
+    Use the RETR_TREE hierarchy to find the outer contour and the inner contours.
+
+    A thick wall gives two nested contours: its outer edge (top-level) and its
+    inner edge (a "hole", child of the outer edge). The track boundary is that
+    hole, and the islands and small obstacles are its children.
 
     Returns
     -------
     outer : np.ndarray
     inners : list of np.ndarray
     """
+    if hierarchy is None or len(contours) == 0:
+        raise RuntimeError("No contours found: the binary image is empty.")
+
     h = hierarchy[0]  # shape (N, 4): [next, prev, first_child, parent]
 
-    # Outer = top-level contour (no parent) with the largest area
     top_level = [
         i for i in range(len(contours))
         if h[i][3] == -1 and cv2.contourArea(contours[i]) > min_area
@@ -193,16 +398,24 @@ def autodetect_contours(contours, hierarchy, min_area=5000):
     if not top_level:
         raise RuntimeError("No top-level contour with sufficient area found.")
 
-    outer_idx = max(top_level, key=lambda i: cv2.contourArea(contours[i]))
+    wall_idx = max(top_level, key=lambda i: cv2.contourArea(contours[i]))
+    wall_area = cv2.contourArea(contours[wall_idx])
+
+    # Track boundary = inner edge of the wall; fall back to the outer edge if there is no valid hole
+    outer_idx = wall_idx
+    holes = [i for i in range(len(contours)) if h[i][3] == wall_idx]
+    if holes:
+        hole_idx = max(holes, key=lambda i: cv2.contourArea(contours[i]))
+        if cv2.contourArea(contours[hole_idx]) > 0.5 * wall_area:
+            outer_idx = hole_idx
+
     outer = contours[outer_idx]
 
-    # Inners = direct children of the outer contour with meaningful area
-    inner_indices = [
-        i for i in range(len(contours))
-        if h[i][3] == outer_idx and cv2.contourArea(contours[i]) > min_area
+    # Inners = children of the hole (islands and small obstacles)
+    inners = [
+        contours[i] for i in range(len(contours))
+        if h[i][3] == outer_idx and cv2.contourArea(contours[i]) >= min_inner_area
     ]
-    inners = [contours[i] for i in inner_indices]
-
     return outer, inners
 
 
@@ -260,10 +473,16 @@ def main():
     binary = cv2.dilate(binary, kernel, iterations=1)
 
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-    min_area = 500
     filtered = np.zeros_like(binary)
     for i in range(1, num_labels):
-        if stats[i, cv2.CC_STAT_AREA] >= min_area:
+        x, y, w, h, area = stats[i]
+        is_wall = area >= MIN_WALL_AREA
+        is_small_obstacle = (
+            area >= MIN_OBSTACLE_AREA
+            and max(w, h) <= MAX_OBSTACLE_SIZE
+            and area / (w * h) >= MIN_OBSTACLE_FILL
+        )
+        if is_wall or is_small_obstacle:
             filtered[labels == i] = 255
     binary = filtered
 
@@ -287,29 +506,23 @@ def main():
         outer, inners = None, []
 
     # ---------------------------------------------------------
-    # PREVIEW AUTO-DETECTED RESULT
+    # AUTO / MANUAL CHOICE (in the window)
     # ---------------------------------------------------------
     if outer is not None:
         preview = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        cv2.drawContours(preview, [outer], -1, (0, 0, 255), 3)   # outer = red
+        cv2.drawContours(preview, [outer], -1, (0, 0, 255), 3)     # outer = red
         if inners:
             cv2.drawContours(preview, inners, -1, (0, 255, 0), 3)  # inners = green
-        cv2.putText(
+        use_auto = ask_yes_no(
             preview,
-            "RED=outer  GREEN=inner(s)  —  press any key",
-            (20, 40),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (255, 255, 0),
-            2,
+            "Use automatic detection? (red=outer, green=inner)",
+            title="Automatic Detection",
         )
-        cv2.imshow("Auto-detected contours", preview)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    else:
+        print("Automatic detection unavailable: switching to manual selection.")
+        use_auto = False
 
-    use_auto = input("Use auto-detected contours? (y/n): ").strip().lower()
-
-    if use_auto != "y":
+    if not use_auto:
         # --- Manual selection ---
         contour_list = list(contours)
 
@@ -317,8 +530,15 @@ def main():
 
         inners = []
         while True:
-            add = input(f"Add an INNER contour? ({len(inners)} selected so far) (y/n): ").strip().lower()
-            if add != "y":
+            current = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            cv2.drawContours(current, [outer], -1, (0, 0, 255), 3)
+            if inners:
+                cv2.drawContours(current, inners, -1, (0, 255, 0), 3)
+            if not ask_yes_no(
+                current,
+                f"Add an INNER contour? ({len(inners)} already selected)",
+                title="Add Inner Contour",
+            ):
                 break
             inner = select_contour(
                 img, contour_list,
@@ -330,12 +550,14 @@ def main():
     # ---------------------------------------------------------
     # HANDLE MISSING CONTOUR (generate automatically)
     # ---------------------------------------------------------
-    # At this point we always have outer. If inners is empty, generate from outer.
-    # If outer needs to be generated from inners, that path is handled below too.
-
     if not inners:
-        gen = input("No inner contour(s). Generate inner automatically from outer? (y/n): ").strip().lower()
-        if gen == "y":
+        base = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        cv2.drawContours(base, [outer], -1, (0, 0, 255), 3)
+        if ask_yes_no(
+            base,
+            "No inner contour selected. Generate one automatically from the outer contour?",
+            title="Generate Inner Contour",
+        ):
             print("Generating inner contour(s) from outer…")
             generated = generate_other_contour([outer], "inner_from_outer", binary)
             if len(generated) > 0:
@@ -345,37 +567,39 @@ def main():
                 print("  Could not generate inner contour — check min_distance / max_search.")
 
     # ---------------------------------------------------------
-    # DRAW FINAL RESULT
+    # DRAW FINAL RESULT + CONFIRMATION
     # ---------------------------------------------------------
     contour_img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     cv2.drawContours(contour_img, [outer], -1, (0, 0, 255), 3)   # outer = red
     if inners:
         cv2.drawContours(contour_img, inners, -1, (0, 255, 0), 3)  # inners = green
 
-    cv2.putText(
+    if not ask_yes_no(
         contour_img,
-        "RED=outer  GREEN=inner(s)  —  press any key to save",
-        (20, 40),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (255, 255, 0),
-        2,
-    )
-    cv2.imshow("Final contours", contour_img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        "Save the map? (red=outer, green=inner)",
+        title="Final Contours",
+        yes_text="SAVE (y)",
+        no_text="CANCEL (n)",
+    ):
+        print("Save cancelled.")
+        return
 
     # ---------------------------------------------------------
     # SAVE RESULT
     # ---------------------------------------------------------
     h_img, w_img = img.shape
-    contour_only = np.ones((h_img, w_img), dtype=np.uint8) * 255
 
-    cv2.polylines(contour_only, [outer], True, 0, 3)
+    track_map = np.zeros((h_img, w_img), dtype=np.uint8)   # black background (everything is an obstacle)
+    cv2.fillPoly(track_map, [outer], 255)                  # outer interior in white (free)
+
     for inner in inners:
-        cv2.polylines(contour_only, [inner], True, 0, 3)
+        cv2.fillPoly(track_map, [inner], 0)                # inner interiors in black (obstacle)
 
-    cv2.imwrite(output_pgm_path, contour_only)
+    cv2.polylines(track_map, [outer], True, 0, 3)
+    for inner in inners:
+        cv2.polylines(track_map, [inner], True, 0, 3)
+
+    cv2.imwrite(output_pgm_path, track_map)
     _write_clean_map_yaml(
         yaml_opener(input_yaml_path),
         output_yaml_path,
@@ -387,7 +611,6 @@ def main():
         f"  YAML: {output_yaml_path}\n"
         f"  PGM : {output_pgm_path}"
     )
-
 
 if __name__ == "__main__":
     main()
