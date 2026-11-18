@@ -12,12 +12,11 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _paramSaverWidget(guiNode_, this)
 {
     
-    _scrollArea.setWidget(_centralWidget);
-    _scrollArea.setWidgetResizable(true);
-    _scrollArea.setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    _scrollArea.setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    this->setCentralWidget(&_scrollArea);
+    this->setCentralWidget(_centralWidget);
     _centralWidget->setLayout(&_gridLayout);
+    _gridLayout.setContentsMargins(10, 10, 10, 10);
+    _gridLayout.setHorizontalSpacing(10);
+    _gridLayout.setVerticalSpacing(10);
 
     _gridLayout.addWidget(&_arcusMasterWidget, 0, 0);
     _gridLayout.addWidget(&_carInfoWidget, 0, 1);
@@ -25,14 +24,24 @@ MainWindow::MainWindow(std::shared_ptr<rclcpp::Node> guiNode_):
     _gridLayout.addWidget(&_mapRacelineHelpers, 1, 0);
     _gridLayout.addWidget(&_purePursuitWidget, 1, 1);
     _gridLayout.addWidget(&_gapFollowWidget, 1, 2);
-    _gridLayout.addWidget(&_paramSaverWidget, 2, 0);
+    _paramSaverWidget.setFixedHeight(58);
+    _gridLayout.addWidget(&_paramSaverWidget, 2, 0, 1, 3);
 
     _gridLayout.setColumnStretch(0, 1);
     _gridLayout.setColumnStretch(1, 1);
     _gridLayout.setColumnStretch(2, 1);
     _gridLayout.setRowStretch(0, 1);
     _gridLayout.setRowStretch(1, 1);
-    _gridLayout.setRowStretch(2, 1);
+    _gridLayout.setRowStretch(2, 0);
+
+    QWidget* panels[] = {
+        &_arcusMasterWidget, &_carInfoWidget, &_localNodesWidget,
+        &_mapRacelineHelpers, &_purePursuitWidget, &_gapFollowWidget};
+    for (QWidget* panel : panels)
+    {
+        panel->setMinimumSize(0, 0);
+        panel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    }
 
     connect(&_paramSaverWidget, &QParamSaverWidget::profileReloaded, &_gapFollowWidget, &QGapFollowWidget::refreshSliderValues);
     connect(&_paramSaverWidget, &QParamSaverWidget::profileReloaded, &_mapRacelineHelpers, &QMapRacelineHelpers::refreshSliderValues);

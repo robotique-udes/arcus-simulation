@@ -2,7 +2,6 @@
 #define MAIN_WINDOWS_HPP
 
 #include <QMainWindow>
-#include <QScrollArea>
 #include <QShortcut>
 #include <QFrame>
 #include <QCloseEvent>
@@ -35,7 +34,6 @@ class MainWindow : public QMainWindow
     std::shared_ptr<rclcpp::Node> _node;
 
     QWidget* _centralWidget = new QWidget;
-    QScrollArea _scrollArea = QScrollArea(this);
     QGridLayout _gridLayout = QGridLayout(_centralWidget);
 
     QArcusMaster _arcusMasterWidget;

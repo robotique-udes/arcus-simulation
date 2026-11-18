@@ -8,6 +8,7 @@ QMapRacelineHelpers::QMapRacelineHelpers(std::shared_ptr<rclcpp::Node> node_, QW
     _maxRiskSlider(parent_, node_, MAX_RISK_PARAM_NAME, MASTER_NODE_NAME, MAX_RISK_MIN, MAX_RISK_MAX, MAX_RISK_DEFAULT, MAX_RISK_PRECISION)
 {
     _ui.setupUi(this);
+    _ui.applyAllPB->setFixedSize(96, 32);
     _ui.buttonsLayout->addWidget(&_racelineHelper);
     _ui.buttonsLayout->addWidget(&_ttcDecayRateSlider);
     _ui.buttonsLayout->addWidget(&_maxRiskSlider);
