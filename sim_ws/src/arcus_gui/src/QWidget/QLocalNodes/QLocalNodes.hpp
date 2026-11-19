@@ -6,6 +6,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <QtWidgets/QWidget>
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
+#include "Global/Helper/QCommandButton/QCommandButton.hpp"
+#include <vector>
 
 class QLocalNodesWidget : public QWidget
 {
@@ -14,6 +16,7 @@ class QLocalNodesWidget : public QWidget
     static constexpr const char* VISUALIZATION_PROCESS_CMD = "source /opt/ros/humble/setup.bash && ros2 launch f1tenth_gym_ros visualize_launch.py";
     static constexpr const char* CONTROLLER_DRIVER = "source /opt/ros/humble/setup.bash && ros2 launch drive_controller drive_controller.launch.py";
     static constexpr const char* SOCKET_ADAPTER = "source /opt/ros/humble/setup.bash && ros2 launch socket_adapter socket.launch.py";
+    
 
   public:
     QLocalNodesWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_);
@@ -32,4 +35,18 @@ class QLocalNodesWidget : public QWidget
     Ui::LocalNodes _ui;
 };
 
-#endif  // Q_LOCAL_NODES_WIDGET_HPP
+  struct CommandDef
+  {
+      const char* name;
+      const char* cmd;
+  };
+
+
+  static constexpr CommandDef COMMANDS[] = 
+  {
+    {"Save Map", "ros2 run slam_map_saver slam_map_saver"},
+    {"Localize Robot", "ros2 service call /global_localization std_srvs/srv/Empty"},
+  };
+
+
+#endif  

@@ -51,6 +51,7 @@ add_executable(main_gui src/gui.cpp
     src/Global/Helper/QTopicSelector/QTopicSelector.cpp
     src/Global/Helper/QProcessHandler/QProcessHandler.cpp
     src/Global/Helper/QParamSlider/QParamSlider.cpp
+    src/Global/Helper/QCommandButton/QCommandButton.cpp
 )
 
 # ROS2 dependencies

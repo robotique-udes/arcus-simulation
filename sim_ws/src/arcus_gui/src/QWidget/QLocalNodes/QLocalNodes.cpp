@@ -11,4 +11,11 @@ QLocalNodesWidget::QLocalNodesWidget(std::shared_ptr<rclcpp::Node> node_, QWidge
     _ui.buttonsLayout->addWidget(&_visualizationProcess);
     _ui.buttonsLayout->addWidget(&_controllerDriver);
     _ui.buttonsLayout->addWidget(&_socketAdapterProcess);
+
+    for (const auto& command : COMMANDS)
+    {
+        auto* button = new QCommandButton(this, command.name, command.cmd, true);
+        _ui.buttonsLayout->addWidget(button);
+    }
 }
+
