@@ -18,6 +18,7 @@ QCarInfoWidget::QCarInfoWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* par
 
     connect( this, &QCarInfoWidget::updateRiskIU, this, &QCarInfoWidget::onUpdateRiskUI);
     connect(this, &QCarInfoWidget::updateConnectionIU, this, &QCarInfoWidget::onUpdateConnectionUI);
+    connect(this, &QCarInfoWidget::updateLocalizationIU, this, &QCarInfoWidget::onUpdateLocalizationUI);
 }
 
 void QCarInfoWidget::initSubscriber(void)
@@ -45,6 +46,11 @@ void QCarInfoWidget::initSubscriber(void)
             [this](std_msgs::msg::String msg_){
             this->CB_socketStatus(msg_);
         });
+
+        _sub_localization = _node->create_subscription<std_msgs::msg::Float32>(LOCALIZATION_TOPIC, 1, [this](std_msgs::msg::Float32 msg_){
+            this->CB_localization(msg_);
+        });
+
     } 
     else
     {
@@ -98,6 +104,13 @@ void QCarInfoWidget::CB_socketStatus(std_msgs::msg::String& msg_)
     emit updateConnectionIU(object.value("connected").toBool(), topics);
 }
 
+void QCarInfoWidget::CB_localization(std_msgs::msg::Float32& msg_)
+{
+    float localization_score = msg_.data;
+
+    emit this->updateLocalizationIU(localization_score);
+}
+
 void QCarInfoWidget::onUpdateSpeedUI(float speed_)
 {
     this->_ui.lcdSpeed->display(QString::number(speed_,'f',2));
@@ -125,4 +138,9 @@ void QCarInfoWidget::onUpdateConnectionUI(bool connected_, QStringList topics_)
     _ui.remoteTopics->addItems(topics_);
     _ui.topicCount->setText(
         QStringLiteral("Topics: %1").arg(topics_.size()));
+}
+
+void QCarInfoWidget::onUpdateLocalizationUI(float localization_score_)
+{
+    this->_ui.lcdX2->display(QString::number(localization_score_,'f',2));
 }

@@ -17,6 +17,7 @@ class QCarInfoWidget : public QWidget
 
     static constexpr const char* TOPIC_ODOM = "/odometry/filtered";
     static constexpr const char* DRIVE_TOPIC = "/drive";
+    static constexpr const char* LOCALIZATION_TOPIC = "/pf/localization_score";
     static constexpr const char* RISK_TOPIC = "/pure_pursuit/trajectory_risk";
     static constexpr const char* SOCKET_STATUS_TOPIC = "/socket_adapter/status";
     static constexpr const float pi = 3.14159265359;
@@ -31,12 +32,15 @@ class QCarInfoWidget : public QWidget
     void updateAngleIU(float angle_);
     void updateRiskIU(float risk_);
     void updateConnectionIU(bool connected_, QStringList topics_);
+    void updateLocalizationIU(float localization_score_);
+
     
   private slots:
     void onUpdateAngleUI(float angle_);
     void onUpdateSpeedUI(float speed_);
     void onUpdateRiskUI(float risk_);
     void onUpdateConnectionUI(bool connected_, QStringList topics_);
+    void onUpdateLocalizationUI(float localization_score_);
 
   private:
 
@@ -51,12 +55,16 @@ class QCarInfoWidget : public QWidget
     void CB_risk(std_msgs::msg::Float32& msg_);
     void CB_socketStatus(std_msgs::msg::String& msg_);
 
+    void CB_localization(std_msgs::msg::Float32& msg_);
+
     std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> _sub_odom;
 
     std::shared_ptr<rclcpp::Subscription<ackermann_msgs::msg::AckermannDriveStamped>> _sub_acker;
 
     std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Float32>> _sub_risk;
     std::shared_ptr<rclcpp::Subscription<std_msgs::msg::String>> _sub_socket_status;
+
+    std::shared_ptr<rclcpp::Subscription<std_msgs::msg::Float32>> _sub_localization;
 
     std::shared_ptr<rclcpp::Node> _node;
 
