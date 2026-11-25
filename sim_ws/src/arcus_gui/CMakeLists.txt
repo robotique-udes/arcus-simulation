@@ -15,8 +15,12 @@ find_package(nav_msgs REQUIRED)
 find_package(ackermann_msgs REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
 find_package(arcus_msgs REQUIRED)
+<<<<<<< HEAD
 find_package(std_srvs REQUIRED)
 find_package(std_msgs REQUIRED)
+=======
+find_package(nav2_msgs REQUIRED)
+>>>>>>> feature/59-choisir-map-gui
 
 # Qt auto-processing
 set(CMAKE_AUTOMOC ON)
@@ -41,6 +45,7 @@ add_executable(main_gui src/gui.cpp
     src/MainWindow.cpp
     src/QWidget/QExampleWidget/QExampleWidget.cpp
     src/QWidget/QCarInfoWidget/QCarInfoWidget.cpp
+    src/QWidget/QMapSelectorWidget/QMapSelectorWidget.cpp
     src/QWidget/QArcusMaster/QArcusMaster.cpp
     src/QWidget/QLocalNodes/QLocalNodes.cpp
     src/QWidget/QMapRacelineHelpers/QMapRacelineHelpers.cpp

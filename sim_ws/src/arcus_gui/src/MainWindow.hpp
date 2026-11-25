@@ -12,6 +12,7 @@
 #include "Global/Helper/QTopicSelector/QTopicSelector.hpp"
 #include "Global/Helper/QProcessHandler/QProcessHandler.hpp"
 #include "QWidget/QCarInfoWidget/QCarInfoWidget.hpp"
+#include "QWidget/QMapSelectorWidget/QMapSelectorWidget.hpp"
 
 #include "QWidget/QArcusMaster/QArcusMaster.hpp"
 #include "QWidget/QLocalNodes/QLocalNodes.hpp"
@@ -19,6 +20,7 @@
 #include "QWidget/QPurePursuitWidget/QPurePursuit.hpp"
 #include "QWidget/QGapFollow/QGapFollow.hpp"
 #include "QWidget/QMapRacelineHelpers/QMapRacelineHelpers.hpp"
+
 #include "rclcpp/rclcpp.hpp"
 
 class MainWindow : public QMainWindow
@@ -43,6 +45,7 @@ class MainWindow : public QMainWindow
     QPurePursuitWidget _purePursuitWidget;
     QGapFollowWidget _gapFollowWidget;
     QParamSaverWidget _paramSaverWidget;
+    QMapSelectorWidget _mapSelectorWidget;
 };
 
 #endif  // MAIN_WINDOWS_HPP

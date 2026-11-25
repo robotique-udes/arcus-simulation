@@ -10,6 +10,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <QtWidgets/QWidget>
 #include <string>
+#include <QDir>
+#include <QFileInfoList>
 
 class QCarInfoWidget : public QWidget  
 {
@@ -33,6 +35,7 @@ class QCarInfoWidget : public QWidget
     void updateConnectionIU(bool connected_, QStringList topics_);
     
   private slots:
+    void onPathChanged();
     void onUpdateAngleUI(float angle_);
     void onUpdateSpeedUI(float speed_);
     void onUpdateRiskUI(float risk_);
@@ -50,6 +53,8 @@ class QCarInfoWidget : public QWidget
 
     void CB_risk(std_msgs::msg::Float32& msg_);
     void CB_socketStatus(std_msgs::msg::String& msg_);
+
+    void updateFileList();
 
     std::shared_ptr<rclcpp::Subscription<nav_msgs::msg::Odometry>> _sub_odom;
 

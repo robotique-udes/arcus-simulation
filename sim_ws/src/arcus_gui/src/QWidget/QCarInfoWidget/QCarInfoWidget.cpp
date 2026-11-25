@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QStringList>
 
+
 QCarInfoWidget::QCarInfoWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* parent_):
     QWidget(parent_),
     _node(node_)
@@ -11,6 +12,8 @@ QCarInfoWidget::QCarInfoWidget(std::shared_ptr<rclcpp::Node> node_, QWidget* par
     _ui.setupUi(this);
 
     this->initSubscriber();
+
+    connect(_ui.lineEditPath, &QLineEdit::editingFinished, this, &QCarInfoWidget::onPathChanged);
 
     connect(this, &QCarInfoWidget::updateSpeedIU, this, &QCarInfoWidget::onUpdateSpeedUI);
 
@@ -51,6 +54,8 @@ void QCarInfoWidget::initSubscriber(void)
         assert(false && "Error: GUI node is null");
     }                                                                
     }
+
+
 
 void QCarInfoWidget::CB_odom(nav_msgs::msg::Odometry& msg_)
 {
